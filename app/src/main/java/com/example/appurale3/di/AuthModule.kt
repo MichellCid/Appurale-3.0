@@ -1,5 +1,6 @@
 package com.example.appurale3.di
 
+import com.google.firebase.firestore.FirebaseFirestore
 import com.example.appurale3.auth.data.AuthRepository
 import com.example.appurale3.auth.data.FirebaseAuthRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -21,7 +22,17 @@ object AuthModule {
 
     @Provides
     @Singleton
-    fun provideAuthRepository(auth: FirebaseAuth): AuthRepository {
-        return FirebaseAuthRepository(auth)
+    fun provideAuthRepository(
+        auth: FirebaseAuth,
+        db: FirebaseFirestore
+    ): AuthRepository {
+        return FirebaseAuthRepository(auth, db)
     }
+
+
+
+    @Provides
+    @Singleton
+    fun provideFirestore(): FirebaseFirestore =
+        FirebaseFirestore.getInstance()
 }

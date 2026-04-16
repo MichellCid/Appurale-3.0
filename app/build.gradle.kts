@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation(libs.core.ktx)
     ksp(libs.hilt.compiler)
+    implementation("com.google.firebase:firebase-firestore")
 
     //implementation(libs.navigation.compose)
 

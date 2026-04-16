@@ -2,6 +2,7 @@ package com.example.appurale3.auth.data
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -12,7 +13,8 @@ import javax.inject.Singleton
 
 @Singleton
 class FirebaseAuthRepository @Inject constructor(
-    private val auth : FirebaseAuth
+    private val auth : FirebaseAuth,
+    private val db: FirebaseFirestore
 ) : AuthRepository {
 
     override val authState: Flow<FirebaseUser?> = callbackFlow {
@@ -37,7 +39,20 @@ class FirebaseAuthRepository @Inject constructor(
 
     override suspend fun register(email: String, password: String): Result<Unit> =
         runCatching {
-            auth.createUserWithEmailAndPassword(email, password).await()
+            val result = auth.createUserWithEmailAndPassword(email, password).await()
+
+            val userId = result.user?.uid ?: throw Exception("User null")
+
+            val userMap = hashMapOf(
+                "uid" to userId,
+                "email" to email
+            )
+
+            db.collection("usuarios")
+                .document(userId)
+                .set(userMap)
+                .await()
+
             Unit
         }
 
@@ -49,3 +64,4 @@ class FirebaseAuthRepository @Inject constructor(
 
 
 }
+
