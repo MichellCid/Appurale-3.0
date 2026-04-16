@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "795300669625",
+    "project_id": "appurale",
+    "storage_bucket": "appurale.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:795300669625:android:7c06930bd5ce06eec35368",
+        "android_client_info": {
+          "package_name": "com.example.appurale3"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_Yu6gmKnj5bxjfj2MAX3jx0l7vWqu52w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
