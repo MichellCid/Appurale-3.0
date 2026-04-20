@@ -64,10 +64,12 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.core.ktx)
+    implementation(libs.androidx.material3)
     ksp(libs.hilt.compiler)
     implementation("com.google.firebase:firebase-firestore")
 
     //implementation(libs.navigation.compose)
+    implementation("androidx.compose.material:material-icons-extended:1.7.5")
 
 
     testImplementation(libs.junit)

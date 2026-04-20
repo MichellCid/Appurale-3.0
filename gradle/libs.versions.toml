@@ -17,6 +17,7 @@ hiltV = "2.56.2"
 hiltNavigationComposeV = "1.2.0"
 kspV = "2.0.21-1.0.25"
 coreKtxVersion = "1.18.0"
+material3 = "1.4.0"
 #navV = "2.8.0"
 
 [libraries]
@@ -43,6 +44,7 @@ hilt-android = {group = "com.google.dagger", name = "hilt-android", version.ref 
 hilt-compiler = {group = "com.google.dagger", name = "hilt-compiler", version.ref = "hiltV"}
 hilt-navigation-compose = {group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationComposeV"}
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtxVersion" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 #navigation-compose = {group = "androidx.navigation", name = "navigation-compose", version.ref = "navV"}
 
 
