@@ -1,6 +1,6 @@
 package com.example.appurale3.auth.presentation.home
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,17 +23,17 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -58,38 +58,48 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import com.example.appurale3.data.models.RoutineUiModel
+import com.example.appurale3.data.models.TodayActivity
 import com.example.appurale3.presentation.home.HomeViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import com.example.appurale3.data.models.TodayActivity
-import com.example.appurale3.data.models.RoutineUiModel
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToAddRoutine: () -> Unit = {},
+    onNavigateToDetailRoutine: (String) -> Unit = {},
     onNavigateToCalendar: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     vm: HomeViewModel = hiltViewModel()
 ) {
-    val uiState by vm.uiState.collectAsState()
+    // Recargar rutinas automáticamente cuando la pantalla está activa
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(Unit) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            vm.refreshRoutines()
+        }
+    }
+
     val userName by vm.userName.collectAsState()
+    val userEmail by vm.userEmail.collectAsState()
     val todayActivities by vm.todayActivities.collectAsState()
     val dailyProgress by vm.dailyProgress.collectAsState()
     val routines by vm.routines.collectAsState()
     val isLoading by vm.isLoading.collectAsState()
 
     var selectedBottomNav by remember { mutableStateOf(0) }
+    var showProfileMenu by remember { mutableStateOf(false) }  // ← Estado del menú
 
-    // Obtener fecha actual formateada
     val currentDate = remember {
         SimpleDateFormat("EEEE d 'de' MMMM", Locale("es", "ES")).format(Calendar.getInstance().time)
     }
@@ -112,11 +122,63 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Perfil */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Perfil"
-                        )
+                    // Icono de perfil con menú
+                    Box {
+                        IconButton(
+                            onClick = { showProfileMenu = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Perfil"
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showProfileMenu,
+                            onDismissRequest = { showProfileMenu = false }
+                        ) {
+                            // Nombre del usuario (no clickeable)
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(
+                                            text = userName,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = userEmail,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = { },  // Vacío para que no haga nada
+                                enabled = false  // No clickeable
+                            )
+
+                            // Separador
+                            DropdownMenuItem(
+                                text = { Text("──────────────────") },
+                                onClick = { },
+                                enabled = false
+                            )
+
+                            // Cerrar sesión
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Cerrar sesión", color = MaterialTheme.colorScheme.error)
+                                    }
+                                },
+                                onClick = {
+                                    showProfileMenu = false
+                                    vm.logout()
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -170,7 +232,6 @@ fun HomeScreen(
             }
         }
     ) { paddingValues ->
-
         if (isLoading) {
             Box(
                 modifier = Modifier
@@ -271,21 +332,25 @@ fun HomeScreen(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
-                        Button(
-                            onClick = onNavigateToAddRoutine,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Nueva")
+                        Row {
+                            IconButton(onClick = { vm.refreshRoutines() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Refrescar")
+                            }
+                            Button(
+                                onClick = onNavigateToAddRoutine,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Nueva")
+                            }
                         }
                     }
                 }
 
-                // Lista de rutinas
                 if (routines.isEmpty()) {
                     item {
                         Card(
@@ -301,10 +366,7 @@ fun HomeScreen(
                                     .padding(32.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text(
-                                    text = "📋",
-                                    style = MaterialTheme.typography.displayMedium
-                                )
+                                Text("📋", style = MaterialTheme.typography.displayMedium)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = "No tienes rutinas",
@@ -323,6 +385,7 @@ fun HomeScreen(
                     items(routines) { routine ->
                         RoutineCard(
                             routine = routine,
+                            onClick = { onNavigateToDetailRoutine(routine.id) },
                             onStartRoutine = { vm.startRoutine(routine) }
                         )
                     }
@@ -334,6 +397,7 @@ fun HomeScreen(
     }
 }
 
+// Resto de las funciones ActivityChecklistItem y RoutineCard igual que antes...
 @Composable
 fun ActivityChecklistItem(
     activity: TodayActivity,
@@ -393,10 +457,13 @@ fun ActivityChecklistItem(
 @Composable
 fun RoutineCard(
     routine: RoutineUiModel,
+    onClick: () -> Unit,
     onStartRoutine: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -430,7 +497,6 @@ fun RoutineCard(
                     }
                 }
 
-                // Categoría
                 if (routine.category.isNotEmpty()) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -453,7 +519,6 @@ fun RoutineCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Actividades count
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,

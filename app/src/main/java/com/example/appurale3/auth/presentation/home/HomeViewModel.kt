@@ -12,6 +12,8 @@ import javax.inject.Inject
 
 import com.example.appurale3.data.models.TodayActivity
 import com.example.appurale3.data.models.RoutineUiModel
+import com.example.appurale3.data.repositories.RoutineRepository
+
 data class HomeUiState(
     val isLoading: Boolean = true,
     val userName: String = "",
@@ -23,15 +25,18 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repo: com.example.appurale3.auth.data.AuthRepository
+    private val repo: com.example.appurale3.auth.data.AuthRepository,
+    private val routineRepository: RoutineRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    // Exponer valores individuales para mejor rendimiento en Compose
     private val _userName = MutableStateFlow("")
     val userName: StateFlow<String> = _userName.asStateFlow()
+
+    private val _userEmail = MutableStateFlow("")  // ← NUEVO
+    val userEmail: StateFlow<String> = _userEmail.asStateFlow()  // ← NUEVO
 
     private val _todayActivities = MutableStateFlow<List<TodayActivity>>(emptyList())
     val todayActivities: StateFlow<List<TodayActivity>> = _todayActivities.asStateFlow()
@@ -55,20 +60,19 @@ class HomeViewModel @Inject constructor(
         val currentUser = repo.currentUser()
         val name = currentUser?.displayName ?:
         currentUser?.email?.substringBefore("@") ?: "Usuario"
+        val email = currentUser?.email ?: ""
+
         _userName.value = name
+        _userEmail.value = email  // ← NUEVO
+
         _uiState.update { it.copy(
             userName = name,
-            userEmail = currentUser?.email.orEmpty()
+            userEmail = email
         )}
     }
 
     private fun loadTodayActivities() {
-        // Datos de ejemplo - Aquí irá la conexión con Firestore
         viewModelScope.launch {
-            _isLoading.value = true
-
-            // TODO: Cargar desde Firestore las actividades de hoy
-            // Por ahora usamos datos de ejemplo basados en tu imagen
             val activities = listOf(
                 TodayActivity("1", "Ir al gym", duration = 60, isCompleted = false),
                 TodayActivity("2", "Estudiar", duration = 120, isCompleted = true),
@@ -77,7 +81,6 @@ class HomeViewModel @Inject constructor(
 
             _todayActivities.value = activities
 
-            // Calcular progreso
             val completed = activities.count { it.isCompleted }
             val total = activities.size
             _dailyProgress.value = if (total > 0) completed.toFloat() / total else 0f
@@ -86,37 +89,43 @@ class HomeViewModel @Inject constructor(
                 dailyProgress = _dailyProgress.value,
                 todayActivities = activities
             )}
-
-            _isLoading.value = false
         }
     }
 
-    private fun loadRoutines() {
+    fun loadRoutines() {
         viewModelScope.launch {
-            // TODO: Cargar rutinas desde Firestore
-            // Por ahora datos de ejemplo
-            val routinesList = listOf(
-                RoutineUiModel(
-                    id = "1",
-                    name = "Rutina Matutina",
-                    description = "Ejercicios para empezar el día",
-                    category = "Ejercicio",
-                    totalActivities = 5,
-                    completedActivities = 2
-                ),
-                RoutineUiModel(
-                    id = "2",
-                    name = "Estudio Nocturno",
-                    description = "Repaso de temas importantes",
-                    category = "Estudio",
-                    totalActivities = 3,
-                    completedActivities = 0
-                )
-            )
+            try {
+                _isLoading.value = true
 
-            _routines.value = routinesList
-            _uiState.update { it.copy(routines = routinesList) }
+                val userId = repo.currentUser()?.uid
+                if (userId.isNullOrEmpty()) {
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                val routines = routineRepository.getRoutinesByUser(userId)
+
+                val routineUiModels = routines.map { routine ->
+                    RoutineUiModel(
+                        id = routine.id,
+                        name = routine.name,
+                        description = routine.description,
+                        category = routine.category,
+                        totalActivities = routine.activities.size,
+                        completedActivities = 0
+                    )
+                }
+                _routines.value = routineUiModels
+                _uiState.update { it.copy(routines = routineUiModels) }
+                _isLoading.value = false
+            } catch (e: Exception) {
+                _isLoading.value = false
+            }
         }
+    }
+
+    fun refreshRoutines() {
+        loadRoutines()
     }
 
     fun toggleActivityCompletion(activity: TodayActivity) {
@@ -128,12 +137,9 @@ class HomeViewModel @Inject constructor(
 
         _todayActivities.value = updatedActivities
 
-        // Recalcular progreso
         val completed = updatedActivities.count { it.isCompleted }
         val total = updatedActivities.size
         _dailyProgress.value = if (total > 0) completed.toFloat() / total else 0f
-
-        // TODO: Guardar en Firestore el cambio
     }
 
     fun startRoutine(routine: RoutineUiModel) {

@@ -4,19 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.remember
+import androidx.navigation.compose.rememberNavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.appurale3.auth.AuthViewModel
-//import com.example.appurale3.navigation.AppNavigation
-import com.example.appurale3.navigation.AppNavHost
+import com.example.appurale3.navigation.AppNaveHost
 import com.example.appurale3.ui.theme.Appurale3Theme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -27,12 +21,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Appurale3Theme {
-                val authVM : AuthViewModel = hiltViewModel()
-
+                val authVM: AuthViewModel = hiltViewModel()
                 val user by authVM.user.collectAsState()
+                val navController = rememberNavController()
 
-                AppNavHost(
-                    startOnHome = user != null
+                AppNaveHost(
+                    navController = navController,
+                    startOnHome = user != null,
+                    userId = user?.uid.orEmpty()
                 )
             }
         }
