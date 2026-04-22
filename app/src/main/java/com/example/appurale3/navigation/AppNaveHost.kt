@@ -59,6 +59,7 @@ fun AppNaveHost(
                 onNavigateToDetailRoutine = { routineId ->
                     navController.navigate(NavRoute.DetailRoutine.pass(routineId, userId))
                 }
+
             )
         }
 

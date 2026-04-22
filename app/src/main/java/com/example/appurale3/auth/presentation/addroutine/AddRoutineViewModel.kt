@@ -156,4 +156,17 @@ class AddRoutineViewModel @Inject constructor(
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
+
+    fun toggleActivityActive(activityId: String) {
+        _uiState.update { state ->
+            state.copy(
+                activities = state.activities.map { act ->
+                    if (act.id == activityId) {
+                        act.copy(active = !act.active)
+                    } else act
+                }
+            )
+        }
+    }
+
 }

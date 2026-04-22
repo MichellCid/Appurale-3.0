@@ -14,5 +14,5 @@ data class Routine(
     val activities: List<Activity> = emptyList(),  // Cambiar ActivityItem por Activity
     val userId: String = "",
     val createdAt: Date = Date(),
-    val isActive: Boolean = true
+    val active: Boolean = true
 )

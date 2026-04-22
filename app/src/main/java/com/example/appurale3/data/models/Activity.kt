@@ -5,5 +5,6 @@ data class Activity(
     val name: String = "",
     val description: String = "",
     val duration: Int = 0,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val active: Boolean = true
 )

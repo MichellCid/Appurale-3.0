@@ -112,7 +112,8 @@ class HomeViewModel @Inject constructor(
                         description = routine.description,
                         category = routine.category,
                         totalActivities = routine.activities.size,
-                        completedActivities = 0
+                        completedActivities = 0,
+                        active = routine.active
                     )
                 }
                 _routines.value = routineUiModels
@@ -144,6 +145,32 @@ class HomeViewModel @Inject constructor(
 
     fun startRoutine(routine: RoutineUiModel) {
         // TODO: Navegar a la pantalla de ejecución de rutina
+    }
+
+    fun toggleRoutineActive(routine: RoutineUiModel) {
+        viewModelScope.launch {
+            val newState = !routine.active
+
+            val result = routineRepository.updateRoutineActive(
+                routine.id,
+                newState
+            )
+
+            result.fold(
+                onSuccess = {
+                    _routines.value = _routines.value.map {
+                        if (it.id == routine.id) {
+                            it.copy(active = newState)
+                        } else it
+                    }
+
+                    _uiState.update { it.copy(routines = _routines.value) }
+                },
+                onFailure = {
+                    println("Error al actualizar estado: ${it.message}")
+                }
+            )
+        }
     }
 
     fun logout() {

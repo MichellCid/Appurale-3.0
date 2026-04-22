@@ -5,7 +5,8 @@ data class TodayActivity(
     val name: String,
     val description: String = "",
     val duration: Int = 0,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val active: Boolean = true
 )
 
 data class RoutineUiModel(
@@ -14,5 +15,6 @@ data class RoutineUiModel(
     val description: String = "",
     val category: String = "",
     val totalActivities: Int,
-    val completedActivities: Int = 0
+    val completedActivities: Int = 0,
+    val active: Boolean = true
 )

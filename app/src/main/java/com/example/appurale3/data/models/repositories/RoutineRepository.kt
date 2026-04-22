@@ -62,4 +62,18 @@ class RoutineRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    suspend fun updateRoutineActive(
+        routineId: String,
+        active: Boolean
+    ): Result<Unit> = try {
+        routinesCollection
+            .document(routineId)
+            .update("active", active)
+            .await()
+
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }

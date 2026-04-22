@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.Button
@@ -80,6 +81,7 @@ fun HomeScreen(
     onNavigateToCalendar: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
+    //onNavigateToSearch: () -> Unit,
     vm: HomeViewModel = hiltViewModel()
 ) {
     // Recargar rutinas automáticamente cuando la pantalla está activa
@@ -122,8 +124,14 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+
+                    //IconButton(onClick = onNavigateToSearch) {
+                    //    Icon(Icons.Default.Search, contentDescription = "Buscar")
+                   // }
+
                     // Icono de perfil con menú
                     Box {
+
                         IconButton(
                             onClick = { showProfileMenu = true }
                         ) {
@@ -386,7 +394,8 @@ fun HomeScreen(
                         RoutineCard(
                             routine = routine,
                             onClick = { onNavigateToDetailRoutine(routine.id) },
-                            onStartRoutine = { vm.startRoutine(routine) }
+                            onStartRoutine = { vm.startRoutine(routine) },
+                            onToggleActive = { vm.toggleRoutineActive(routine) }
                         )
                     }
                 }
@@ -458,7 +467,8 @@ fun ActivityChecklistItem(
 fun RoutineCard(
     routine: RoutineUiModel,
     onClick: () -> Unit,
-    onStartRoutine: () -> Unit
+    onStartRoutine: () -> Unit,
+    onToggleActive: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -466,7 +476,10 @@ fun RoutineCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (routine.active)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -519,7 +532,7 @@ fun RoutineCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
@@ -549,6 +562,20 @@ fun RoutineCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Iniciar")
+                }
+
+                Button(
+                    onClick = onToggleActive,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (routine.active)
+                            MaterialTheme.colorScheme.errorContainer
+                        else
+                            MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        if (routine.active) "Desactivar" else "Activar"
+                    )
                 }
             }
         }
