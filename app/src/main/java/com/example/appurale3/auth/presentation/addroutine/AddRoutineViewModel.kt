@@ -111,7 +111,9 @@ class AddRoutineViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
 
             val currentState = _uiState.value
+            val MAX_CHARS = 500
 
+            // Validar nombre
             if (currentState.name.isBlank()) {
                 _uiState.update {
                     it.copy(isLoading = false, errorMessage = "El nombre de la rutina es obligatorio")
@@ -119,10 +121,19 @@ class AddRoutineViewModel @Inject constructor(
                 return@launch
             }
 
+            // CU-11-CP-05: Validar límite de caracteres en descripción
+            if (currentState.description.length > MAX_CHARS) {
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = "La descripción excede el límite de $MAX_CHARS caracteres")
+                }
+                return@launch
+            }
+
+            // CU-11-CP-02: Descripción opcional (no hay validación de vacío)
 
             val routine = Routine(
                 name = currentState.name,
-                description = currentState.description,
+                description = currentState.description,  // Puede estar vacío
                 category = currentState.category,
                 date = currentState.date,
                 hour = currentState.hour,
@@ -135,17 +146,18 @@ class AddRoutineViewModel @Inject constructor(
             val result = routineRepository.saveRoutine(routine)
 
             result.fold(
-                onSuccess = {
+                onSuccess = { id ->
                     _uiState.update {
                         it.copy(isLoading = false, successMessage = "Rutina guardada exitosamente")
                     }
                     onSuccess()
                 },
                 onFailure = { exception ->
+                    // CU-11-CP-07: Error al guardar
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = "Error al guardar: ${exception.message}"
+                            errorMessage = "Error al guardar los datos: ${exception.message}"
                         )
                     }
                 }

@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.TextFieldValue
 import com.example.appurale3.data.models.Activity
 import com.example.appurale3.presentation.detailroutine.DetailRoutineViewModel
 import java.util.UUID
@@ -44,10 +45,63 @@ fun AddActivityScreen(
 ) {
     val context = LocalContext.current
     var name by remember { mutableStateOf(existingActivity?.name ?: "") }
+
+    // CU-11: Campo descripción (nota)
     var description by remember { mutableStateOf(existingActivity?.description ?: "") }
     var duration by remember { mutableStateOf(existingActivity?.duration?.toString() ?: "") }
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
     val isEditing = existingActivity != null
+    val MAX_CHARS = 500  // CU-11-CP-05: Límite de caracteres
+
+    fun validateAndSave() {
+        // CU-11-CP-02: Campo descripción es OPCIONAL - no validamos que tenga texto
+
+        // Validar solo el nombre (obligatorio)
+        if (name.isBlank()) {
+            errorMessage = "El nombre de la actividad es obligatorio"
+            showError = true
+            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // CU-11-CP-05: Validar límite de caracteres (máximo 500)
+        if (description.length > MAX_CHARS) {
+            errorMessage = "La nota excede el límite de $MAX_CHARS caracteres"
+            showError = true
+            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // En producción, esto lo maneja Firestore automáticamente
+
+        val activity = Activity(
+            id = existingActivity?.id ?: UUID.randomUUID().toString(),
+            name = name,
+            description = description,  // CU-11: La nota se guarda aquí
+            duration = duration.toIntOrNull() ?: 0,
+            isCompleted = existingActivity?.isCompleted ?: false
+        )
+
+        try {
+            if (isEditing) {
+                // CU-11-CP-03 y CU-11-CP-04: Actualizar nota en edición
+                viewModel.updateActivity(activity.id, activity)
+                Toast.makeText(context, "Nota actualizada correctamente", Toast.LENGTH_SHORT).show()
+            } else {
+                // CU-11-CP-01: Guardar actividad con nota
+                viewModel.addActivity(activity)
+                Toast.makeText(context, "Actividad guardada correctamente", Toast.LENGTH_SHORT).show()
+            }
+            onNavigateBack()
+        } catch (e: Exception) {
+            // CU-11-CP-07: Error al guardar
+            errorMessage = "Error al guardar los datos"
+            showError = true
+            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -65,30 +119,8 @@ fun AddActivityScreen(
                 },
                 actions = {
                     TextButton(
-                        onClick = {
-                            // VALIDACIÓN DE CAMPOS OBLIGATORIOS (CU-01/CP-02)
-                            if (name.isBlank()) {
-                                // Mostrar error de campo vacío
-                                Toast.makeText(context, "Campos vacíos", Toast.LENGTH_SHORT).show()
-                                return@TextButton
-                            }
-
-                            // Si pasa validación, guardar (CU-01/CP-01)
-                            val activity = Activity(
-                                id = existingActivity?.id ?: UUID.randomUUID().toString(),
-                                name = name,
-                                description = description,
-                                duration = duration.toIntOrNull() ?: 0,
-                                isCompleted = existingActivity?.isCompleted ?: false
-                            )
-                            if (isEditing) {
-                                viewModel.updateActivity(activity.id, activity)
-                            } else {
-                                viewModel.addActivity(activity)
-                            }
-                            onNavigateBack()
-                        },
-                        enabled = name.isNotBlank()  // Esto ya valida que el nombre no esté vacío
+                        onClick = { validateAndSave() },
+                        enabled = name.isNotBlank()
                     ) {
                         Icon(Icons.Default.Check, contentDescription = "Guardar")
                         Text("Guardar")
@@ -104,24 +136,50 @@ fun AddActivityScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Nombre de la actividad (obligatorio)
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = {
+                    name = it
+                    showError = false
+                },
                 label = { Text("Nombre de la actividad *") },
                 placeholder = { Text("Ej: Correr 5km") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                isError = showError && name.isBlank()
             )
 
+            // CU-11: Campo DESCRIPCIÓN (NOTA)
             OutlinedTextField(
                 value = description,
-                onValueChange = { description = it },
-                label = { Text("Descripción") },
-                placeholder = { Text("Describe la actividad...") },
+                onValueChange = {
+                    description = it
+                    showError = false
+                },
+                label = { Text("Nota / Descripción") },
+                placeholder = { Text("Escribe una nota o descripción...") },
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 3
+                minLines = 3,
+                maxLines = 6,
+                isError = showError && description.length > MAX_CHARS,
+                supportingText = {
+                    if (description.length > MAX_CHARS) {
+                        Text(
+                            text = "⚠️ Límite: ${description.length}/$MAX_CHARS caracteres",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    } else {
+                        Text(
+                            text = "${description.length}/$MAX_CHARS caracteres",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
             )
 
+            // Duración
             OutlinedTextField(
                 value = duration,
                 onValueChange = { duration = it.filter { it.isDigit() } },
@@ -133,28 +191,9 @@ fun AddActivityScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Botón guardar
             Button(
-                onClick = {
-                    // VALIDACIÓN DE CAMPOS OBLIGATORIOS
-                    if (name.isBlank()) {
-                        Toast.makeText(context, "Campos vacíos", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-
-                    val activity = Activity(
-                        id = existingActivity?.id ?: UUID.randomUUID().toString(),
-                        name = name,
-                        description = description,
-                        duration = duration.toIntOrNull() ?: 0,
-                        isCompleted = existingActivity?.isCompleted ?: false
-                    )
-                    if (isEditing) {
-                        viewModel.updateActivity(activity.id, activity)
-                    } else {
-                        viewModel.addActivity(activity)
-                    }
-                    onNavigateBack()
-                },
+                onClick = { validateAndSave() },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = name.isNotBlank()
             ) {

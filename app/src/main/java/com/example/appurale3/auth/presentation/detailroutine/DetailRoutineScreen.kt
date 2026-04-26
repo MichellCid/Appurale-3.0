@@ -354,8 +354,8 @@ fun ActivityDetailItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Checkbox(
-                    checked = activity.isCompleted,  // ← Debe leer isCompleted
-                    onCheckedChange = { onToggleCompletion() }  // ← Llama al callback
+                    checked = activity.isCompleted,
+                    onCheckedChange = { onToggleCompletion() }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
@@ -365,9 +365,10 @@ fun ActivityDetailItem(
                         fontWeight = FontWeight.Medium,
                         textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else null
                     )
+                    // CU-11: Mostrar la NOTA (descripción)
                     if (activity.description.isNotEmpty()) {
                         Text(
-                            text = activity.description,
+                            text = "📝 ${activity.description}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

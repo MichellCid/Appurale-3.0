@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.appurale3.auth.presentation.sound.SoundPickerScreen
 import com.example.appurale3.data.models.Activity
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -73,9 +74,11 @@ fun AddRoutineScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var isCustomCategory by remember { mutableStateOf(false) }
     var customCategoryText by remember { mutableStateOf("") }
+    var showSoundPicker by remember { mutableStateOf(false) }  // ← MOVIDO AQUÍ (antes del Scaffold)
 
     val categories = listOf("Trabajo", "Estudio", "Ejercicio", "Salud", "Personal", "Otro")
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    val MAX_CHARS_DESCRIPTION = 500
 
     LaunchedEffect(uiState.errorMessage, uiState.successMessage) {
         uiState.errorMessage?.let {
@@ -146,12 +149,27 @@ fun AddRoutineScreen(
                     // Descripción
                     OutlinedTextField(
                         value = uiState.description,
-                        onValueChange = viewModel::updateDescription,
+                        onValueChange = { newValue ->
+                            if (newValue.length <= MAX_CHARS_DESCRIPTION) {
+                                viewModel.updateDescription(newValue)
+                            }
+                        },
                         label = { Text("Descripción") },
                         placeholder = { Text("Describe tu rutina...") },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
-                        maxLines = 3
+                        maxLines = 4,
+                        isError = uiState.description.length > MAX_CHARS_DESCRIPTION,
+                        supportingText = {
+                            Text(
+                                text = "${uiState.description.length}/$MAX_CHARS_DESCRIPTION caracteres",
+                                color = if (uiState.description.length > MAX_CHARS_DESCRIPTION)
+                                    MaterialTheme.colorScheme.error
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     )
 
                     // Categoría
@@ -260,18 +278,22 @@ fun AddRoutineScreen(
 
                     // Sonido
                     OutlinedTextField(
-                        value = if (uiState.soundUri.isNotEmpty()) "Sonido seleccionado" else "",
+                        value = if (uiState.soundUri.isNotEmpty()) {
+                            "✅ Sonido seleccionado"
+                        } else "",
                         onValueChange = {},
                         label = { Text("Sonido") },
                         placeholder = { Text("Seleccionar sonido") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showSoundPicker = true },
                         readOnly = true,
                         trailingIcon = {
                             IconButton(
-                                onClick = { /* TODO: Abrir selector de sonidos */ },
+                                onClick = { showSoundPicker = true },
                                 modifier = Modifier.size(32.dp)
                             ) {
-                                Text("📢", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
+                                Text("🔊", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
                             }
                         }
                     )
@@ -296,7 +318,6 @@ fun AddRoutineScreen(
                         fontWeight = FontWeight.Medium
                     )
 
-                    // Lista de actividades agregadas
                     if (uiState.activities.isNotEmpty()) {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -311,7 +332,6 @@ fun AddRoutineScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    // Botón para agregar actividades
                     Button(
                         onClick = { /* TODO: Navegar a pantalla de agregar actividad */ },
                         modifier = Modifier.fillMaxWidth(),
@@ -382,6 +402,18 @@ fun AddRoutineScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    // SoundPicker - MOVIDO FUERA DEL SCAFFOLD
+    if (showSoundPicker) {
+        SoundPickerScreen(
+            onSoundSelected = { soundUri ->
+                viewModel.updateSoundUri(soundUri)
+                showSoundPicker = false
+                Toast.makeText(context, "Sonido seleccionado", Toast.LENGTH_SHORT).show()
+            },
+            onNavigateBack = { showSoundPicker = false }
+        )
     }
 
     // DatePicker Dialog

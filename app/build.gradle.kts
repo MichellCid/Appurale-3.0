@@ -67,8 +67,12 @@ dependencies {
     implementation(libs.androidx.material3)
     ksp(libs.hilt.compiler)
     implementation("com.google.firebase:firebase-firestore")
+    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.media:media:1.7.0")
+    implementation("com.google.accompanist:accompanist-permissions:0.35.0-alpha")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
 
-    //implementation(libs.navigation.compose)
+
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
 
 
@@ -79,4 +83,6 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+
 }
