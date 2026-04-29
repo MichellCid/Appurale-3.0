@@ -30,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.input.TextFieldValue
 import com.example.appurale3.data.models.Activity
 import com.example.appurale3.presentation.detailroutine.DetailRoutineViewModel
 import java.util.UUID
@@ -45,20 +44,17 @@ fun AddActivityScreen(
 ) {
     val context = LocalContext.current
     var name by remember { mutableStateOf(existingActivity?.name ?: "") }
-
-    // CU-11: Campo descripción (nota)
     var description by remember { mutableStateOf(existingActivity?.description ?: "") }
     var duration by remember { mutableStateOf(existingActivity?.duration?.toString() ?: "") }
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
     val isEditing = existingActivity != null
-    val MAX_CHARS = 500  // CU-11-CP-05: Límite de caracteres
+    val MAX_CHARS = 500
 
+    // Función de validación
     fun validateAndSave() {
-        // CU-11-CP-02: Campo descripción es OPCIONAL - no validamos que tenga texto
-
-        // Validar solo el nombre (obligatorio)
+        // CU-01/CP-02: Validación de campos vacíos
         if (name.isBlank()) {
             errorMessage = "El nombre de la actividad es obligatorio"
             showError = true
@@ -66,7 +62,7 @@ fun AddActivityScreen(
             return
         }
 
-        // CU-11-CP-05: Validar límite de caracteres (máximo 500)
+        // Validar límite de caracteres
         if (description.length > MAX_CHARS) {
             errorMessage = "La nota excede el límite de $MAX_CHARS caracteres"
             showError = true
@@ -74,29 +70,25 @@ fun AddActivityScreen(
             return
         }
 
-        // En producción, esto lo maneja Firestore automáticamente
-
+        // Crear actividad
         val activity = Activity(
             id = existingActivity?.id ?: UUID.randomUUID().toString(),
             name = name,
-            description = description,  // CU-11: La nota se guarda aquí
+            description = description,
             duration = duration.toIntOrNull() ?: 0,
             isCompleted = existingActivity?.isCompleted ?: false
         )
 
         try {
             if (isEditing) {
-                // CU-11-CP-03 y CU-11-CP-04: Actualizar nota en edición
                 viewModel.updateActivity(activity.id, activity)
-                Toast.makeText(context, "Nota actualizada correctamente", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Actividad actualizada correctamente", Toast.LENGTH_SHORT).show()
             } else {
-                // CU-11-CP-01: Guardar actividad con nota
                 viewModel.addActivity(activity)
                 Toast.makeText(context, "Actividad guardada correctamente", Toast.LENGTH_SHORT).show()
             }
             onNavigateBack()
         } catch (e: Exception) {
-            // CU-11-CP-07: Error al guardar
             errorMessage = "Error al guardar los datos"
             showError = true
             Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
@@ -119,8 +111,7 @@ fun AddActivityScreen(
                 },
                 actions = {
                     TextButton(
-                        onClick = { validateAndSave() },
-                        enabled = name.isNotBlank()
+                        onClick = { validateAndSave() }
                     ) {
                         Icon(Icons.Default.Check, contentDescription = "Guardar")
                         Text("Guardar")
@@ -136,7 +127,7 @@ fun AddActivityScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Nombre de la actividad (obligatorio)
+            // Campo Nombre (OBLIGATORIO)
             OutlinedTextField(
                 value = name,
                 onValueChange = {
@@ -147,17 +138,26 @@ fun AddActivityScreen(
                 placeholder = { Text("Ej: Correr 5km") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                isError = showError && name.isBlank()
+                isError = showError && name.isBlank(),
+                supportingText = {
+                    if (showError && name.isBlank()) {
+                        Text(
+                            text = "⚠️ Este campo es obligatorio",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
             )
 
-            // CU-11: Campo DESCRIPCIÓN (NOTA)
+            // Campo Descripción/Nota (OPCIONAL)
             OutlinedTextField(
                 value = description,
                 onValueChange = {
                     description = it
                     showError = false
                 },
-                label = { Text("Nota / Descripción") },
+                label = { Text("Nota / Descripción (opcional)") },
                 placeholder = { Text("Escribe una nota o descripción...") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,
@@ -179,7 +179,7 @@ fun AddActivityScreen(
                 }
             )
 
-            // Duración
+            // Duración (OPCIONAL)
             OutlinedTextField(
                 value = duration,
                 onValueChange = { duration = it.filter { it.isDigit() } },
@@ -194,8 +194,7 @@ fun AddActivityScreen(
             // Botón guardar
             Button(
                 onClick = { validateAndSave() },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = name.isNotBlank()
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (isEditing) "Actualizar actividad" else "Agregar actividad")
             }

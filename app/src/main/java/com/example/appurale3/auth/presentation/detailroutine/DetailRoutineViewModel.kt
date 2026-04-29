@@ -149,4 +149,5 @@ class DetailRoutineViewModel @Inject constructor(
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
+
 }

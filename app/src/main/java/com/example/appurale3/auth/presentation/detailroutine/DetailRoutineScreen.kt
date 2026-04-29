@@ -66,14 +66,18 @@ import java.util.Locale
 @Composable
 fun DetailRoutineScreen(
     routineId: String,
-    //userId: String,
     onNavigateBack: () -> Unit,
     onNavigateToAddActivity: (String) -> Unit,
+    onNavigateToEditActivity: (String, Activity) -> Unit,
     viewModel: DetailRoutineViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isEditing by remember { mutableStateOf(false) }
     var editedRoutine by remember { mutableStateOf(uiState.routine) }
+
+    // Estados para el diálogo de confirmación de eliminación de actividad (CU-03)
+    var showDeleteActivityDialog by remember { mutableStateOf(false) }
+    var activityToDelete by remember { mutableStateOf<Activity?>(null) }
 
     LaunchedEffect(routineId) {
         viewModel.loadRoutine(routineId)
@@ -107,6 +111,7 @@ fun DetailRoutineScreen(
                 actions = {
                     val context = LocalContext.current
 
+                    // Botón Compartir (CU-18)
                     IconButton(onClick = {
                         compartirRutina(context, routineId)
                     }) {
@@ -120,7 +125,6 @@ fun DetailRoutineScreen(
                         IconButton(onClick = { viewModel.toggleDeleteDialog() }) {
                             Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                         }
-
                     } else {
                         TextButton(
                             onClick = {
@@ -181,6 +185,7 @@ fun DetailRoutineScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Tarjeta de información de la rutina
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -240,6 +245,7 @@ fun DetailRoutineScreen(
                                     )
                                 }
                             } else {
+                                // Modo edición
                                 OutlinedTextField(
                                     value = editedRoutine?.description ?: "",
                                     onValueChange = { editedRoutine = editedRoutine?.copy(description = it) },
@@ -266,6 +272,7 @@ fun DetailRoutineScreen(
                     }
                 }
 
+                // Título de actividades
                 item {
                     Text(
                         text = "Actividades",
@@ -274,7 +281,9 @@ fun DetailRoutineScreen(
                     )
                 }
 
+                // Lista de actividades (CU-04)
                 if (routine.activities.isEmpty()) {
+                    // FA-01: Sin actividades
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -304,12 +313,19 @@ fun DetailRoutineScreen(
                         }
                     }
                 } else {
+                    // En DetailRoutineScreen.kt, dentro de LazyColumn:
                     items(routine.activities) { activity ->
                         ActivityDetailItem(
                             activity = activity,
                             onToggleCompletion = { viewModel.toggleActivityCompletion(activity.id) },
-                            onEdit = { /* TODO: Editar actividad */ },
-                            onDelete = { viewModel.removeActivity(activity.id) }
+                            onEdit = {
+                                // Navegar a editar actividad
+                                onNavigateToEditActivity(routineId, activity)
+                            },
+                            onDelete = {
+                                activityToDelete = activity
+                                showDeleteActivityDialog = true
+                            }
                         )
                     }
                 }
@@ -319,6 +335,7 @@ fun DetailRoutineScreen(
         }
     }
 
+    // Diálogo de confirmación para eliminar rutina (CU-07)
     if (uiState.showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.toggleDeleteDialog() },
@@ -333,6 +350,42 @@ fun DetailRoutineScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.toggleDeleteDialog() }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+    LaunchedEffect(uiState.routine) {
+        println("=== UI State Actualizado ===")
+        println("Rutina: ${uiState.routine?.name}")
+        println("Actividades: ${uiState.routine?.activities?.map { "${it.name}=${it.isCompleted}" }}")
+    }
+
+    // Diálogo de confirmación para eliminar actividad (CU-03)
+    if (showDeleteActivityDialog && activityToDelete != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteActivityDialog = false
+                activityToDelete = null
+            },
+            title = { Text("Eliminar actividad") },
+            text = { Text("¿Estás seguro de que quieres eliminar \"${activityToDelete?.name}\"? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        activityToDelete?.let { viewModel.removeActivity(it.id) }
+                        showDeleteActivityDialog = false
+                        activityToDelete = null
+                    }
+                ) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDeleteActivityDialog = false
+                    activityToDelete = null
+                }) {
                     Text("Cancelar")
                 }
             }
@@ -366,6 +419,7 @@ fun ActivityDetailItem(
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Checkbox para marcar completada (CU-09)
                 Checkbox(
                     checked = activity.isCompleted,
                     onCheckedChange = { onToggleCompletion() }
@@ -396,10 +450,13 @@ fun ActivityDetailItem(
                 }
             }
 
+            // Botones de acción
             Row {
+                // Botón Editar (CU-02)
                 IconButton(onClick = onEdit) {
                     Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(20.dp))
                 }
+                // Botón Eliminar (CU-03) - con confirmación
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Eliminar", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
                 }
@@ -408,13 +465,12 @@ fun ActivityDetailItem(
     }
 }
 
+// Función para compartir rutina (CU-18)
 fun compartirRutina(context: Context, rutinaId: String) {
     val link = "https://appurale.web.app/rutina/$rutinaId"
-
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, "Mira mi rutina: $link")
+        putExtra(Intent.EXTRA_TEXT, "📋 Mira mi rutina en Appurale: $link")
     }
-
     context.startActivity(Intent.createChooser(intent, "Compartir rutina"))
 }

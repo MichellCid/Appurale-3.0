@@ -71,6 +71,7 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.35.0-alpha")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
+    implementation("com.google.code.gson:gson:2.10.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

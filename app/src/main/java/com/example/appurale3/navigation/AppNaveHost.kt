@@ -1,7 +1,6 @@
 package com.example.appurale3.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -16,6 +15,11 @@ import com.example.appurale3.auth.presentation.register.RegisterScreen
 import com.example.appurale3.presentation.addactivity.AddActivityScreen
 import com.example.appurale3.presentation.detailroutine.DetailRoutineScreen
 import com.example.appurale3.presentation.detailroutine.DetailRoutineViewModel
+import com.example.appurale3.data.models.Activity
+import com.google.gson.Gson
+import java.net.URLDecoder
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @Composable
 fun AppNaveHost(
@@ -26,14 +30,6 @@ fun AppNaveHost(
 ) {
     // Crear UNA SOLA instancia del ViewModel para compartir
     val detailViewModel: DetailRoutineViewModel = hiltViewModel()
-/**
-    LaunchedEffect(deepLinkRutinaId, userId) {
-        if (!deepLinkRutinaId.isNullOrEmpty() && userId.isNotEmpty()) {
-            navController.navigate(
-                NavRoute.DetailRoutine.pass(deepLinkRutinaId, userId)
-            )
-        }
-    }**/
 
     NavHost(
         navController = navController,
@@ -82,49 +78,59 @@ fun AppNaveHost(
         composable(
             route = NavRoute.DetailRoutine.route,
             arguments = listOf(
-                navArgument("routineId") { type = NavType.StringType },
-                //navArgument("userId") { type = NavType.StringType }
+                navArgument("routineId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-
-            val routineId = backStackEntry.arguments?.getString("routineId").orEmpty()
-            //val userIdParam = backStackEntry.arguments?.getString("userId").orEmpty()
-
+            val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
             DetailRoutineScreen(
                 routineId = routineId,
-                //userId = userIdParam,
-                onNavigateBack = {
-                    navController.popBackStack()
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddActivity = { routineIdParam ->
+                    navController.navigate(NavRoute.AddActivity.pass(routineIdParam))
                 },
-                onNavigateToAddActivity = { id ->
-                    navController.navigate(NavRoute.AddActivity.pass(id))
+                onNavigateToEditActivity = { routineIdParam, activity ->
+                    // Codificar la actividad como JSON para pasarla por la URL
+                    val activityJson = URLEncoder.encode(
+                        Gson().toJson(activity),
+                        StandardCharsets.UTF_8.toString()
+                    )
+                    navController.navigate(NavRoute.AddActivity.pass(routineIdParam, activityJson))
                 },
                 viewModel = detailViewModel
             )
         }
 
-
         composable(
             route = NavRoute.AddActivity.route,
             arguments = listOf(
-                navArgument("routineId") { type = NavType.StringType }
+                navArgument("routineId") { type = NavType.StringType },
+                navArgument("activityJson") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
+            val activityJson = backStackEntry.arguments?.getString("activityJson") ?: ""
+
+            var existingActivity: Activity? = null
+            if (activityJson.isNotEmpty()) {
+                try {
+                    val decoded = URLDecoder.decode(activityJson, StandardCharsets.UTF_8.toString())
+                    existingActivity = Gson().fromJson(decoded, Activity::class.java)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
 
             AddActivityScreen(
                 routineId = routineId,
                 viewModel = detailViewModel,
+                existingActivity = existingActivity,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
     }
 
-    LaunchedEffect(deepLinkRutinaId, startOnHome) {
-        if (startOnHome && !deepLinkRutinaId.isNullOrEmpty()) {
-            navController.navigate(
-                NavRoute.DetailRoutine.pass(deepLinkRutinaId)
-            )
-        }
+    // Manejar deep link
+    if (startOnHome && !deepLinkRutinaId.isNullOrEmpty()) {
+        navController.navigate(NavRoute.DetailRoutine.pass(deepLinkRutinaId))
     }
 }
