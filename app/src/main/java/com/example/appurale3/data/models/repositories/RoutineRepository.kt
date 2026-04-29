@@ -62,4 +62,13 @@ class RoutineRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    suspend fun getRoutineById(routineId: String): Routine? {
+        val doc = firestore.collection("routines")
+            .document(routineId)
+            .get()
+            .await()
+
+        return doc.toObject(Routine::class.java)?.copy(id = doc.id)
+    }
 }

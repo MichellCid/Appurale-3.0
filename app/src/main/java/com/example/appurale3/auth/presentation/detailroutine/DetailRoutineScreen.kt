@@ -1,5 +1,7 @@
 package com.example.appurale3.presentation.detailroutine
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,7 +66,7 @@ import java.util.Locale
 @Composable
 fun DetailRoutineScreen(
     routineId: String,
-    userId: String,
+    //userId: String,
     onNavigateBack: () -> Unit,
     onNavigateToAddActivity: (String) -> Unit,
     viewModel: DetailRoutineViewModel = hiltViewModel()
@@ -71,8 +75,8 @@ fun DetailRoutineScreen(
     var isEditing by remember { mutableStateOf(false) }
     var editedRoutine by remember { mutableStateOf(uiState.routine) }
 
-    LaunchedEffect(routineId, userId) {
-        viewModel.loadRoutine(routineId, userId)
+    LaunchedEffect(routineId) {
+        viewModel.loadRoutine(routineId)
     }
 
     Scaffold(
@@ -101,6 +105,14 @@ fun DetailRoutineScreen(
                     }
                 },
                 actions = {
+                    val context = LocalContext.current
+
+                    IconButton(onClick = {
+                        compartirRutina(context, routineId)
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Compartir")
+                    }
+
                     if (!isEditing) {
                         IconButton(onClick = { isEditing = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Editar")
@@ -108,6 +120,7 @@ fun DetailRoutineScreen(
                         IconButton(onClick = { viewModel.toggleDeleteDialog() }) {
                             Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                         }
+
                     } else {
                         TextButton(
                             onClick = {
@@ -393,4 +406,15 @@ fun ActivityDetailItem(
             }
         }
     }
+}
+
+fun compartirRutina(context: Context, rutinaId: String) {
+    val link = "https://appurale.web.app/rutina/$rutinaId"
+
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, "Mira mi rutina: $link")
+    }
+
+    context.startActivity(Intent.createChooser(intent, "Compartir rutina"))
 }

@@ -30,12 +30,30 @@ class DetailRoutineViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DetailRoutineUiState())
     val uiState: StateFlow<DetailRoutineUiState> = _uiState.asStateFlow()
 
-    fun loadRoutine(routineId: String, userId: String) {
+    /**fun loadRoutine(routineId: String, userId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
                 val routines = routineRepository.getRoutinesByUser(userId)
                 val routine = routines.find { it.id == routineId }
+                _uiState.update {
+                    it.copy(routine = routine, isLoading = false)
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(errorMessage = e.message, isLoading = false)
+                }
+            }
+        }
+    }
+    **/
+
+    fun loadRoutine(routineId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                val routine = routineRepository.getRoutineById(routineId)
+
                 _uiState.update {
                     it.copy(routine = routine, isLoading = false)
                 }

@@ -60,7 +60,6 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
-    //implementation(libs.firebase.auth.ktx)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.core.ktx)
@@ -71,10 +70,7 @@ dependencies {
     implementation("androidx.media:media:1.7.0")
     implementation("com.google.accompanist:accompanist-permissions:0.35.0-alpha")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
-
-
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
-
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

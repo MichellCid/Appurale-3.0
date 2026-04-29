@@ -1,6 +1,7 @@
 package com.example.appurale3.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -20,10 +21,19 @@ import com.example.appurale3.presentation.detailroutine.DetailRoutineViewModel
 fun AppNaveHost(
     navController: NavHostController = rememberNavController(),
     startOnHome: Boolean,
-    userId: String = ""
+    userId: String = "",
+    deepLinkRutinaId: String? = null
 ) {
     // Crear UNA SOLA instancia del ViewModel para compartir
     val detailViewModel: DetailRoutineViewModel = hiltViewModel()
+/**
+    LaunchedEffect(deepLinkRutinaId, userId) {
+        if (!deepLinkRutinaId.isNullOrEmpty() && userId.isNotEmpty()) {
+            navController.navigate(
+                NavRoute.DetailRoutine.pass(deepLinkRutinaId, userId)
+            )
+        }
+    }**/
 
     NavHost(
         navController = navController,
@@ -57,7 +67,7 @@ fun AppNaveHost(
                     navController.navigate(NavRoute.AddRoutine.route)
                 },
                 onNavigateToDetailRoutine = { routineId ->
-                    navController.navigate(NavRoute.DetailRoutine.pass(routineId, userId))
+                    navController.navigate(NavRoute.DetailRoutine.pass(routineId))
                 }
             )
         }
@@ -73,22 +83,26 @@ fun AppNaveHost(
             route = NavRoute.DetailRoutine.route,
             arguments = listOf(
                 navArgument("routineId") { type = NavType.StringType },
-                navArgument("userId") { type = NavType.StringType }
+                //navArgument("userId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
-            val userIdParam = backStackEntry.arguments?.getString("userId") ?: ""
+
+            val routineId = backStackEntry.arguments?.getString("routineId").orEmpty()
+            //val userIdParam = backStackEntry.arguments?.getString("userId").orEmpty()
 
             DetailRoutineScreen(
                 routineId = routineId,
-                userId = userIdParam,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddActivity = { routineIdParam ->
-                    navController.navigate(NavRoute.AddActivity.pass(routineIdParam))
+                //userId = userIdParam,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToAddActivity = { id ->
+                    navController.navigate(NavRoute.AddActivity.pass(id))
                 },
                 viewModel = detailViewModel
             )
         }
+
 
         composable(
             route = NavRoute.AddActivity.route,
@@ -102,6 +116,14 @@ fun AppNaveHost(
                 routineId = routineId,
                 viewModel = detailViewModel,
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+    }
+
+    LaunchedEffect(deepLinkRutinaId, startOnHome) {
+        if (startOnHome && !deepLinkRutinaId.isNullOrEmpty()) {
+            navController.navigate(
+                NavRoute.DetailRoutine.pass(deepLinkRutinaId)
             )
         }
     }
