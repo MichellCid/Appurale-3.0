@@ -358,7 +358,7 @@ fun DetailRoutineScreen(
     LaunchedEffect(uiState.routine) {
         println("=== UI State Actualizado ===")
         println("Rutina: ${uiState.routine?.name}")
-        println("Actividades: ${uiState.routine?.activities?.map { "${it.name}=${it.isCompleted}" }}")
+        println("Actividades: ${uiState.routine?.activities?.map { "${it.name}=${it.completed}" }}")
     }
 
     // Diálogo de confirmación para eliminar actividad (CU-03)
@@ -421,7 +421,7 @@ fun ActivityDetailItem(
             ) {
                 // Checkbox para marcar completada (CU-09)
                 Checkbox(
-                    checked = activity.isCompleted,
+                    checked = activity.completed,
                     onCheckedChange = { onToggleCompletion() }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -430,7 +430,7 @@ fun ActivityDetailItem(
                         text = activity.name,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else null
+                        textDecoration = if (activity.completed) TextDecoration.LineThrough else null
                     )
                     // CU-11: Mostrar la NOTA (descripción)
                     if (activity.description.isNotEmpty()) {

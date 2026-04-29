@@ -106,13 +106,16 @@ class HomeViewModel @Inject constructor(
                 val routines = routineRepository.getRoutinesByUser(userId)
 
                 val routineUiModels = routines.map { routine ->
+                    // Calcular cuántas actividades están completadas
+                    val completedCount = routine.activities.count { it.completed }
+
                     RoutineUiModel(
                         id = routine.id,
                         name = routine.name,
                         description = routine.description,
                         category = routine.category,
                         totalActivities = routine.activities.size,
-                        completedActivities = 0
+                        completedActivities = completedCount  // ← AHORA USA EL VALOR REAL
                     )
                 }
                 _routines.value = routineUiModels
@@ -125,7 +128,7 @@ class HomeViewModel @Inject constructor(
     }
 
     fun refreshRoutines() {
-        loadRoutines()
+        loadRoutines()  
     }
 
     fun toggleActivityCompletion(activity: TodayActivity) {

@@ -76,7 +76,7 @@ fun AddActivityScreen(
             name = name,
             description = description,
             duration = duration.toIntOrNull() ?: 0,
-            isCompleted = existingActivity?.isCompleted ?: false
+            completed = existingActivity?.completed ?: false
         )
 
         try {

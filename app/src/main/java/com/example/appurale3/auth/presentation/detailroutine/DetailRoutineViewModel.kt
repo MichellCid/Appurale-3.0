@@ -122,21 +122,17 @@ class DetailRoutineViewModel @Inject constructor(
     fun toggleActivityCompletion(activityId: String) {
         val currentRoutine = _uiState.value.routine ?: return
 
-        // Actualizar el estado de la actividad
         val updatedActivities = currentRoutine.activities.map { activity ->
             if (activity.id == activityId) {
-                activity.copy(isCompleted = !activity.isCompleted)
+                activity.copy(completed = !activity.completed)  // ← CAMBIADO
             } else {
                 activity
             }
         }
 
         val updatedRoutine = currentRoutine.copy(activities = updatedActivities)
-
-        // Actualizar UI inmediatamente
         _uiState.update { it.copy(routine = updatedRoutine) }
 
-        // Guardar en Firestore en segundo plano
         viewModelScope.launch {
             routineRepository.updateRoutine(updatedRoutine)
         }
