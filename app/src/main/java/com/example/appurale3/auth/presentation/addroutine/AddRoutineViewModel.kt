@@ -133,6 +133,7 @@ class AddRoutineViewModel @Inject constructor(
 
             val routine = Routine(
                 name = currentState.name,
+                nameLowercase = currentState.name.lowercase(),
                 description = currentState.description,  // Puede estar vacío
                 category = currentState.category,
                 date = currentState.date,

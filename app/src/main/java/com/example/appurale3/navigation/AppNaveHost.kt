@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.appurale3.auth.presentation.addroutine.AddRoutineScreen
+import com.example.appurale3.auth.presentation.estatistics.StatisticsScreen
 import com.example.appurale3.auth.presentation.home.HomeScreen
 import com.example.appurale3.auth.presentation.login.LoginScreen
 import com.example.appurale3.auth.presentation.register.RegisterScreen
@@ -64,6 +65,9 @@ fun AppNaveHost(
                 },
                 onNavigateToDetailRoutine = { routineId ->
                     navController.navigate(NavRoute.DetailRoutine.pass(routineId))
+                },
+                onNavigateToStatistics = {
+                    navController.navigate("statistics")
                 }
             )
         }
@@ -127,6 +131,13 @@ fun AppNaveHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
+        composable("statistics") {
+            StatisticsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
     }
 
     // Manejar deep link

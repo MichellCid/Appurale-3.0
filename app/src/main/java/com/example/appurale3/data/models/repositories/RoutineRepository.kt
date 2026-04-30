@@ -71,4 +71,24 @@ class RoutineRepository @Inject constructor(
 
         return doc.toObject(Routine::class.java)?.copy(id = doc.id)
     }
+
+    suspend fun searchRoutinesRealTime(userId: String, query: String): List<Routine> {
+        if (query.isBlank()) return emptyList()
+
+        return try {
+            val snapshot = routinesCollection
+                .whereEqualTo("userId", userId)
+                .orderBy("nameLowercase")
+                .startAt(query.lowercase())
+                .endAt(query.lowercase() + "\uf8ff")
+                .get()
+                .await()
+
+            snapshot.documents.mapNotNull { it.toObject<Routine>() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+    }
+
 }
