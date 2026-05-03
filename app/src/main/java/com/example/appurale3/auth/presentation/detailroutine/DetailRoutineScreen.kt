@@ -2,6 +2,7 @@ package com.example.appurale3.presentation.detailroutine
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -34,6 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -57,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.rememberNavController
 import com.example.appurale3.data.models.Activity
 import com.example.appurale3.data.models.Routine
 import java.text.SimpleDateFormat
@@ -69,7 +73,9 @@ fun DetailRoutineScreen(
     onNavigateBack: () -> Unit,
     onNavigateToAddActivity: (String) -> Unit,
     onNavigateToEditActivity: (String, Activity) -> Unit,
+    onNavigateToActivityProgress: (String, String) -> Unit,
     viewModel: DetailRoutineViewModel = hiltViewModel()
+
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isEditing by remember { mutableStateOf(false) }
@@ -272,6 +278,36 @@ fun DetailRoutineScreen(
                     }
                 }
 
+                item {
+                    val total = routine.activities.size
+                    val completed = routine.activities.count { it.completed }
+                    val progress = if (total > 0) completed / total.toFloat() else 0f
+
+                    Column {
+                        Text(
+                            text = "Progreso de la rutina",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        LinearProgressIndicator(
+                            progress = progress,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "$completed de $total actividades completadas",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
                 // Título de actividades
                 item {
                     Text(
@@ -314,7 +350,7 @@ fun DetailRoutineScreen(
                     }
                 } else {
                     // En DetailRoutineScreen.kt, dentro de LazyColumn:
-                    items(routine.activities) { activity ->
+                    itemsIndexed(routine.activities) { index, activity ->
                         ActivityDetailItem(
                             activity = activity,
                             onToggleCompletion = { viewModel.toggleActivityCompletion(activity.id) },
@@ -325,6 +361,9 @@ fun DetailRoutineScreen(
                             onDelete = {
                                 activityToDelete = activity
                                 showDeleteActivityDialog = true
+                            },
+                            onClick = {
+                                onNavigateToActivityProgress(routineId, index.toString())
                             }
                         )
                     }
@@ -398,10 +437,16 @@ fun ActivityDetailItem(
     activity: Activity,
     onToggleCompletion: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+
+    onClick: () -> Unit
+
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
