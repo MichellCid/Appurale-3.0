@@ -2,6 +2,7 @@ package com.example.appurale3.presentation.detailroutine
 
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,7 +61,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.compose.rememberNavController
 import com.example.appurale3.data.models.Activity
 import com.example.appurale3.data.models.Routine
 import java.text.SimpleDateFormat
@@ -75,18 +75,30 @@ fun DetailRoutineScreen(
     onNavigateToEditActivity: (String, Activity) -> Unit,
     onNavigateToActivityProgress: (String, String) -> Unit,
     viewModel: DetailRoutineViewModel = hiltViewModel()
-
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isEditing by remember { mutableStateOf(false) }
     var editedRoutine by remember { mutableStateOf(uiState.routine) }
+    val context = LocalContext.current
 
     // Estados para el diálogo de confirmación de eliminación de actividad (CU-03)
     var showDeleteActivityDialog by remember { mutableStateOf(false) }
     var activityToDelete by remember { mutableStateOf<Activity?>(null) }
 
+    // Estados para el diálogo de confirmación del checkbox (CU-09)
+    var showCheckboxDialog by remember { mutableStateOf(false) }
+    var pendingActivity by remember { mutableStateOf<Activity?>(null) }
+
     LaunchedEffect(routineId) {
         viewModel.loadRoutine(routineId)
+    }
+
+    // Ex-01: Mostrar error si ocurre al guardar
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearMessages()
+        }
     }
 
     Scaffold(
@@ -115,8 +127,6 @@ fun DetailRoutineScreen(
                     }
                 },
                 actions = {
-                    val context = LocalContext.current
-
                     // Botón Compartir (CU-18)
                     IconButton(onClick = {
                         compartirRutina(context, routineId)
@@ -278,6 +288,7 @@ fun DetailRoutineScreen(
                     }
                 }
 
+                // Barra de progreso de la rutina
                 item {
                     val total = routine.activities.size
                     val completed = routine.activities.count { it.completed }
@@ -296,14 +307,17 @@ fun DetailRoutineScreen(
                             progress = progress,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(8.dp)
+                                .height(8.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
                             text = "$completed de $total actividades completadas",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -349,13 +363,15 @@ fun DetailRoutineScreen(
                         }
                     }
                 } else {
-                    // En DetailRoutineScreen.kt, dentro de LazyColumn:
                     itemsIndexed(routine.activities) { index, activity ->
                         ActivityDetailItem(
                             activity = activity,
-                            onToggleCompletion = { viewModel.toggleActivityCompletion(activity.id) },
+                            onToggleCompletion = {
+                                // CU-09: Mostrar diálogo de confirmación antes de marcar
+                                pendingActivity = activity
+                                showCheckboxDialog = true
+                            },
                             onEdit = {
-                                // Navegar a editar actividad
                                 onNavigateToEditActivity(routineId, activity)
                             },
                             onDelete = {
@@ -394,11 +410,6 @@ fun DetailRoutineScreen(
             }
         )
     }
-    LaunchedEffect(uiState.routine) {
-        println("=== UI State Actualizado ===")
-        println("Rutina: ${uiState.routine?.name}")
-        println("Actividades: ${uiState.routine?.activities?.map { "${it.name}=${it.completed}" }}")
-    }
 
     // Diálogo de confirmación para eliminar actividad (CU-03)
     if (showDeleteActivityDialog && activityToDelete != null) {
@@ -430,6 +441,49 @@ fun DetailRoutineScreen(
             }
         )
     }
+
+    // Diálogo de confirmación para marcar actividad como completada (CU-09)
+    if (showCheckboxDialog && pendingActivity != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showCheckboxDialog = false
+                pendingActivity = null
+            },
+            title = { Text("Marcar actividad") },
+            text = { Text("¿Marcar \"${pendingActivity?.name}\" como cumplida?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // FA-01: Usuario confirma con "Aceptar"
+                        try {
+                            pendingActivity?.let { activity ->
+                                viewModel.toggleActivityCompletion(activity.id)
+                            }
+                            showCheckboxDialog = false
+                            pendingActivity = null
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Error al marcar la actividad", Toast.LENGTH_SHORT).show()
+                            showCheckboxDialog = false
+                            pendingActivity = null
+                        }
+                    }
+                ) {
+                    Text("Aceptar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        // FA-01: Usuario cancela la acción
+                        showCheckboxDialog = false
+                        pendingActivity = null
+                    }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -438,15 +492,12 @@ fun ActivityDetailItem(
     onToggleCompletion: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-
     onClick: () -> Unit
-
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
