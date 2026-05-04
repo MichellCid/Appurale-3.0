@@ -58,6 +58,8 @@ import com.example.appurale3.data.models.Activity
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,6 +77,7 @@ fun AddRoutineScreen(
     var isCustomCategory by remember { mutableStateOf(false) }
     var customCategoryText by remember { mutableStateOf("") }
     var showSoundPicker by remember { mutableStateOf(false) }  // ← MOVIDO AQUÍ (antes del Scaffold)
+    var showTimePicker by remember { mutableStateOf(false) }
 
     val categories = listOf("Trabajo", "Estudio", "Ejercicio", "Salud", "Personal", "Otro")
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
@@ -256,13 +259,24 @@ fun AddRoutineScreen(
                             }
                         )
 
+                        // Hora - Con selector de tiempo
                         OutlinedTextField(
                             value = uiState.hour,
-                            onValueChange = viewModel::updateHour,
+                            onValueChange = {},
                             label = { Text("Hora") },
                             placeholder = { Text("HH:MM") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showTimePicker = true },
+                            readOnly = true,
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { showTimePicker = true },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Text("🕐", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
+                                }
+                            }
                         )
                     }
 
@@ -448,6 +462,44 @@ fun AddRoutineScreen(
                 showModeToggle = false
             )
         }
+    }
+
+    // TimePicker Dialog
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+            initialMinute = Calendar.getInstance().get(Calendar.MINUTE),
+            is24Hour = true
+        )
+
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Seleccionar hora") },
+            text = {
+                TimePicker(
+                    state = timePickerState
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val hour = timePickerState.hour
+                        val minute = timePickerState.minute
+                        val hourFormatted = hour.toString().padStart(2, '0')
+                        val minuteFormatted = minute.toString().padStart(2, '0')
+                        viewModel.updateHour("$hourFormatted:$minuteFormatted")
+                        showTimePicker = false
+                    }
+                ) {
+                    Text("Aceptar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 
