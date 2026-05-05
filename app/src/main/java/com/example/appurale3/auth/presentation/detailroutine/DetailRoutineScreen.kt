@@ -2,6 +2,8 @@ package com.example.appurale3.presentation.detailroutine
 
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -34,6 +37,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -69,18 +73,32 @@ fun DetailRoutineScreen(
     onNavigateBack: () -> Unit,
     onNavigateToAddActivity: (String) -> Unit,
     onNavigateToEditActivity: (String, Activity) -> Unit,
+    onNavigateToActivityProgress: (String, String) -> Unit,
     viewModel: DetailRoutineViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isEditing by remember { mutableStateOf(false) }
     var editedRoutine by remember { mutableStateOf(uiState.routine) }
+    val context = LocalContext.current
 
     // Estados para el diálogo de confirmación de eliminación de actividad (CU-03)
     var showDeleteActivityDialog by remember { mutableStateOf(false) }
     var activityToDelete by remember { mutableStateOf<Activity?>(null) }
 
+    // Estados para el diálogo de confirmación del checkbox (CU-09)
+    var showCheckboxDialog by remember { mutableStateOf(false) }
+    var pendingActivity by remember { mutableStateOf<Activity?>(null) }
+
     LaunchedEffect(routineId) {
         viewModel.loadRoutine(routineId)
+    }
+
+    // Ex-01: Mostrar error si ocurre al guardar
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearMessages()
+        }
     }
 
     Scaffold(
@@ -109,8 +127,6 @@ fun DetailRoutineScreen(
                     }
                 },
                 actions = {
-                    val context = LocalContext.current
-
                     // Botón Compartir (CU-18)
                     IconButton(onClick = {
                         compartirRutina(context, routineId)
@@ -272,6 +288,40 @@ fun DetailRoutineScreen(
                     }
                 }
 
+                // Barra de progreso de la rutina
+                item {
+                    val total = routine.activities.size
+                    val completed = routine.activities.count { it.completed }
+                    val progress = if (total > 0) completed / total.toFloat() else 0f
+
+                    Column {
+                        Text(
+                            text = "Progreso de la rutina",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        LinearProgressIndicator(
+                            progress = progress,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "$completed de $total actividades completadas",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 // Título de actividades
                 item {
                     Text(
@@ -313,18 +363,23 @@ fun DetailRoutineScreen(
                         }
                     }
                 } else {
-                    // En DetailRoutineScreen.kt, dentro de LazyColumn:
-                    items(routine.activities) { activity ->
+                    itemsIndexed(routine.activities) { index, activity ->
                         ActivityDetailItem(
                             activity = activity,
-                            onToggleCompletion = { viewModel.toggleActivityCompletion(activity.id) },
+                            onToggleCompletion = {
+                                // CU-09: Mostrar diálogo de confirmación antes de marcar
+                                pendingActivity = activity
+                                showCheckboxDialog = true
+                            },
                             onEdit = {
-                                // Navegar a editar actividad
                                 onNavigateToEditActivity(routineId, activity)
                             },
                             onDelete = {
                                 activityToDelete = activity
                                 showDeleteActivityDialog = true
+                            },
+                            onClick = {
+                                onNavigateToActivityProgress(routineId, index.toString())
                             }
                         )
                     }
@@ -354,11 +409,6 @@ fun DetailRoutineScreen(
                 }
             }
         )
-    }
-    LaunchedEffect(uiState.routine) {
-        println("=== UI State Actualizado ===")
-        println("Rutina: ${uiState.routine?.name}")
-        println("Actividades: ${uiState.routine?.activities?.map { "${it.name}=${it.isCompleted}" }}")
     }
 
     // Diálogo de confirmación para eliminar actividad (CU-03)
@@ -391,6 +441,49 @@ fun DetailRoutineScreen(
             }
         )
     }
+
+    // Diálogo de confirmación para marcar actividad como completada (CU-09)
+    if (showCheckboxDialog && pendingActivity != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showCheckboxDialog = false
+                pendingActivity = null
+            },
+            title = { Text("Marcar actividad") },
+            text = { Text("¿Marcar \"${pendingActivity?.name}\" como cumplida?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // FA-01: Usuario confirma con "Aceptar"
+                        try {
+                            pendingActivity?.let { activity ->
+                                viewModel.toggleActivityCompletion(activity.id)
+                            }
+                            showCheckboxDialog = false
+                            pendingActivity = null
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Error al marcar la actividad", Toast.LENGTH_SHORT).show()
+                            showCheckboxDialog = false
+                            pendingActivity = null
+                        }
+                    }
+                ) {
+                    Text("Aceptar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        // FA-01: Usuario cancela la acción
+                        showCheckboxDialog = false
+                        pendingActivity = null
+                    }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -398,10 +491,13 @@ fun ActivityDetailItem(
     activity: Activity,
     onToggleCompletion: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -421,7 +517,7 @@ fun ActivityDetailItem(
             ) {
                 // Checkbox para marcar completada (CU-09)
                 Checkbox(
-                    checked = activity.isCompleted,
+                    checked = activity.completed,
                     onCheckedChange = { onToggleCompletion() }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -430,7 +526,7 @@ fun ActivityDetailItem(
                         text = activity.name,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else null
+                        textDecoration = if (activity.completed) TextDecoration.LineThrough else null
                     )
                     // CU-11: Mostrar la NOTA (descripción)
                     if (activity.description.isNotEmpty()) {

@@ -3,8 +3,10 @@ package com.example.appurale3.data.models
 import java.util.Date
 
 data class Routine(
+
     val id: String = "",
     val name: String = "",
+    val nameLowercase: String = "",
     val description: String = "",
     val category: String = "",
     val date: Date? = null,

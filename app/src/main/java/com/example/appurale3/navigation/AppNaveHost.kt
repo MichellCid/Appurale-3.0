@@ -1,6 +1,14 @@
 package com.example.appurale3.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -8,7 +16,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appurale3.auth.presentation.addroutine.AddRoutineScreen
+import com.example.appurale3.auth.presentation.detailroutine.ActivityProgressScreen
+import com.example.appurale3.auth.presentation.estatistics.StatisticsScreen
 import com.example.appurale3.auth.presentation.home.HomeScreen
 import com.example.appurale3.auth.presentation.login.LoginScreen
 import com.example.appurale3.auth.presentation.register.RegisterScreen
@@ -64,6 +76,9 @@ fun AppNaveHost(
                 },
                 onNavigateToDetailRoutine = { routineId ->
                     navController.navigate(NavRoute.DetailRoutine.pass(routineId))
+                },
+                onNavigateToStatistics = {
+                    navController.navigate("statistics")
                 }
             )
         }
@@ -84,18 +99,26 @@ fun AppNaveHost(
             val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
             DetailRoutineScreen(
                 routineId = routineId,
+
                 onNavigateBack = { navController.popBackStack() },
+
                 onNavigateToAddActivity = { routineIdParam ->
                     navController.navigate(NavRoute.AddActivity.pass(routineIdParam))
                 },
+
                 onNavigateToEditActivity = { routineIdParam, activity ->
-                    // Codificar la actividad como JSON para pasarla por la URL
                     val activityJson = URLEncoder.encode(
                         Gson().toJson(activity),
                         StandardCharsets.UTF_8.toString()
                     )
                     navController.navigate(NavRoute.AddActivity.pass(routineIdParam, activityJson))
                 },
+
+
+                onNavigateToActivityProgress = { rId, aId ->
+                    navController.navigate("activity_detail/$rId/$aId")
+                },
+
                 viewModel = detailViewModel
             )
         }
@@ -127,10 +150,65 @@ fun AppNaveHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
+        composable("statistics") {
+            StatisticsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+
+        composable("activity_detail/{routineId}/{index}") { backStackEntry ->
+
+            val routineId = backStackEntry.arguments?.getString("routineId") ?: return@composable
+            val index = backStackEntry.arguments?.getString("index")?.toIntOrNull()
+
+            val uiState by detailViewModel.uiState.collectAsStateWithLifecycle()
+
+            LaunchedEffect(routineId) {
+                detailViewModel.loadRoutine(routineId)
+            }
+
+            val routine = uiState.routine
+
+            if (routine != null && index != null && index in routine.activities.indices) {
+
+                ActivityProgressScreen(
+                    routine = routine,
+                    currentIndex = index,
+                    onNext = { nextIndex ->
+                        val nextActivity = routine.activities[nextIndex]
+
+                        navController.navigate("activity_detail/$routineId/$nextIndex") {
+                            popUpTo("activity_detail/$routineId/$index") {
+                                inclusive = true
+                            }
+                        }
+                    },
+                    onFinish = {
+                        navController.popBackStack()
+                    },
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+
+            } else {
+
+
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
     }
 
-    // Manejar deep link
-    if (startOnHome && !deepLinkRutinaId.isNullOrEmpty()) {
-        navController.navigate(NavRoute.DetailRoutine.pass(deepLinkRutinaId))
+    LaunchedEffect(deepLinkRutinaId) {
+        if (startOnHome && !deepLinkRutinaId.isNullOrEmpty()) {
+            navController.navigate(NavRoute.DetailRoutine.pass(deepLinkRutinaId))
+        }
     }
 }

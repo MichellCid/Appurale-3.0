@@ -1,8 +1,12 @@
 package com.example.appurale3.presentation.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,10 +54,18 @@ class HomeViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    private val _suggestions = MutableStateFlow<List<RoutineUiModel>>(emptyList())
+    val suggestions: StateFlow<List<RoutineUiModel>> = _suggestions
+
+
     init {
         loadUserData()
         loadTodayActivities()
         loadRoutines()
+        observeSearch()
     }
 
     private fun loadUserData() {
@@ -106,13 +118,16 @@ class HomeViewModel @Inject constructor(
                 val routines = routineRepository.getRoutinesByUser(userId)
 
                 val routineUiModels = routines.map { routine ->
+                    // Calcular cuántas actividades están completadas
+                    val completedCount = routine.activities.count { it.completed }
+
                     RoutineUiModel(
                         id = routine.id,
                         name = routine.name,
                         description = routine.description,
                         category = routine.category,
                         totalActivities = routine.activities.size,
-                        completedActivities = 0
+                        completedActivities = completedCount  // ← AHORA USA EL VALOR REAL
                     )
                 }
                 _routines.value = routineUiModels
@@ -125,7 +140,7 @@ class HomeViewModel @Inject constructor(
     }
 
     fun refreshRoutines() {
-        loadRoutines()
+        loadRoutines()  
     }
 
     fun toggleActivityCompletion(activity: TodayActivity) {
@@ -149,4 +164,47 @@ class HomeViewModel @Inject constructor(
     fun logout() {
         repo.signOut()
     }
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    private fun observeSearch() {
+        viewModelScope.launch {
+            _searchQuery
+                .debounce(400)
+                .distinctUntilChanged()
+                .collectLatest { query ->
+
+                    val userId = repo.currentUser()?.uid ?: return@collectLatest
+
+                    if (query.isBlank()) {
+                        _suggestions.value = emptyList()
+                        return@collectLatest
+                    }
+
+                    try {
+                        val result = routineRepository.searchRoutinesRealTime(userId, query)
+
+                        Log.d("SEARCH", "Query: $query")
+                        Log.d("SEARCH", "Resultados: ${result.size}")
+
+                        _suggestions.value = result.map { routine ->
+                            RoutineUiModel(
+                                id = routine.id,
+                                name = routine.name,
+                                description = routine.description,
+                                category = routine.category,
+                                totalActivities = routine.activities.size,
+                                completedActivities = routine.activities.count { it.completed }
+                            )
+                        }
+
+                    } catch (e: Exception) {
+                        _suggestions.value = emptyList()
+                    }
+                }
+        }
+    }
+
 }

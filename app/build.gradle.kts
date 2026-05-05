@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
 
 }
-
+//arreglando GJSON
 hilt{
     enableAggregatingTask = false
 }

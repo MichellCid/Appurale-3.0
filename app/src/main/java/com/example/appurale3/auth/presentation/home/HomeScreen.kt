@@ -65,6 +65,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appurale3.data.models.RoutineUiModel
 import com.example.appurale3.data.models.TodayActivity
 import com.example.appurale3.presentation.home.HomeViewModel
@@ -251,6 +252,14 @@ fun HomeScreen(
             ) {
                 // Tarjeta de progreso del día
                 item {
+
+                    SearchWithSuggestions(
+                        viewModel = vm,
+                        onClick = { routineId ->
+                            onNavigateToDetailRoutine(routineId)
+                        }
+                    )
+                    /**
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
@@ -294,6 +303,10 @@ fun HomeScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
+
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
                             Text(
                                 text = "Actividades de hoy",
                                 style = MaterialTheme.typography.labelMedium,
@@ -317,7 +330,7 @@ fun HomeScreen(
                                 }
                             }
                         }
-                    }
+                    }**/
                 }
 
                 // Sección de rutinas

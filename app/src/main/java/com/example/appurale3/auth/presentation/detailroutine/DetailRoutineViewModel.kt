@@ -7,8 +7,11 @@ import com.example.appurale3.data.models.Routine
 import com.example.appurale3.data.repositories.RoutineRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,6 +32,13 @@ class DetailRoutineViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(DetailRoutineUiState())
     val uiState: StateFlow<DetailRoutineUiState> = _uiState.asStateFlow()
+
+    val routine: StateFlow<Routine?> = _uiState.asStateFlow().map { it.routine }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _uiState.value.routine)
+
+    val activities: StateFlow<List<Activity>> = _uiState.asStateFlow().map { it.routine?.activities ?: emptyList() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _uiState.value.routine?.activities ?: emptyList())
+
 
     /**fun loadRoutine(routineId: String, userId: String) {
         viewModelScope.launch {
@@ -122,21 +132,17 @@ class DetailRoutineViewModel @Inject constructor(
     fun toggleActivityCompletion(activityId: String) {
         val currentRoutine = _uiState.value.routine ?: return
 
-        // Actualizar el estado de la actividad
         val updatedActivities = currentRoutine.activities.map { activity ->
             if (activity.id == activityId) {
-                activity.copy(isCompleted = !activity.isCompleted)
+                activity.copy(completed = !activity.completed)  // ← CAMBIADO
             } else {
                 activity
             }
         }
 
         val updatedRoutine = currentRoutine.copy(activities = updatedActivities)
-
-        // Actualizar UI inmediatamente
         _uiState.update { it.copy(routine = updatedRoutine) }
 
-        // Guardar en Firestore en segundo plano
         viewModelScope.launch {
             routineRepository.updateRoutine(updatedRoutine)
         }

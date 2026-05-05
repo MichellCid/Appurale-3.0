@@ -1,5 +1,9 @@
 package com.example.appurale3.presentation.addactivity
 
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,8 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.appurale3.data.models.Activity
+import com.example.appurale3.data.receiver.ActivityAlarmReceiver
 import com.example.appurale3.presentation.detailroutine.DetailRoutineViewModel
+import java.util.Calendar
+import java.util.Date
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,6 +49,7 @@ fun AddActivityScreen(
     viewModel: DetailRoutineViewModel,
     existingActivity: Activity? = null,
     onNavigateBack: () -> Unit
+
 ) {
     val context = LocalContext.current
     var name by remember { mutableStateOf(existingActivity?.name ?: "") }
@@ -51,6 +60,83 @@ fun AddActivityScreen(
 
     val isEditing = existingActivity != null
     val MAX_CHARS = 500
+
+
+    fun convertToMillis(date: Date?, hour: String): Long {
+        return try {
+            if (date == null || hour.isEmpty()) return System.currentTimeMillis()
+
+            val calendar = Calendar.getInstance()
+            calendar.time = date
+
+
+            val parts = hour.split(":")
+            val hourInt = parts[0].toInt()
+            val minuteInt = parts[1].toInt()
+
+            calendar.set(Calendar.HOUR_OF_DAY, hourInt)
+            calendar.set(Calendar.MINUTE, minuteInt)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+
+            calendar.timeInMillis
+
+        } catch (e: Exception) {
+            System.currentTimeMillis()
+        }
+    }
+
+    fun calculateStartTime(): Long {
+        val routine = viewModel.routine.value ?: return System.currentTimeMillis()
+
+        val startTime = convertToMillis(routine.date, routine.hour)
+
+        var startTimeAccumulated = startTime
+
+        val currentActivities = viewModel.activities.value
+
+        currentActivities.forEach { act ->
+            startTimeAccumulated += (act.duration * 60 * 1000)
+        }
+
+        return startTimeAccumulated
+    }
+
+
+
+    fun scheduleActivity(context: Context, activity: Activity) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // Calculamos cuánto dura ESTA actividad en ms para la notificación de fin
+        val durationMs = (activity.duration.toLong()) * 60 * 1000
+
+        // Calculamos CUÁNDO debe empezar basándonos en la rutina y actividades previas
+        val calculatedStart = calculateStartTime()
+
+        val intent = Intent(context, ActivityAlarmReceiver::class.java).apply {
+            putExtra("ACTIVITY_NAME", activity.name)
+            putExtra("DURATION_MS", durationMs)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            activity.id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        try {
+            // Programamos el inicio exacto
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                calculatedStart,
+                pendingIntent
+            )
+        } catch (e: SecurityException) {
+            Toast.makeText(context, "Error de permisos de alarma", Toast.LENGTH_LONG).show()
+        }
+    }
+
 
     // Función de validación
     fun validateAndSave() {
@@ -76,7 +162,7 @@ fun AddActivityScreen(
             name = name,
             description = description,
             duration = duration.toIntOrNull() ?: 0,
-            isCompleted = existingActivity?.isCompleted ?: false
+            completed = existingActivity?.completed ?: false
         )
 
         try {
@@ -84,6 +170,9 @@ fun AddActivityScreen(
                 viewModel.updateActivity(activity.id, activity)
                 Toast.makeText(context, "Actividad actualizada correctamente", Toast.LENGTH_SHORT).show()
             } else {
+
+                scheduleActivity(context, activity)
+
                 viewModel.addActivity(activity)
                 Toast.makeText(context, "Actividad guardada correctamente", Toast.LENGTH_SHORT).show()
             }
