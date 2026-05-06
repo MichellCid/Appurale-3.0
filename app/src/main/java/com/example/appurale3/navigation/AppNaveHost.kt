@@ -17,14 +17,15 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appurale3.auth.presentation.addroutine.AddRoutineScreen
 import com.example.appurale3.auth.presentation.detailroutine.ActivityProgressScreen
 import com.example.appurale3.auth.presentation.estatistics.StatisticsScreen
 import com.example.appurale3.auth.presentation.home.HomeScreen
 import com.example.appurale3.auth.presentation.login.LoginScreen
 import com.example.appurale3.auth.presentation.register.RegisterScreen
+import com.example.appurale3.auth.presentation.settings.SettingsScreen
 import com.example.appurale3.presentation.addactivity.AddActivityScreen
+import com.example.appurale3.auth.presentation.calendar.CalendarScreen
 import com.example.appurale3.presentation.detailroutine.DetailRoutineScreen
 import com.example.appurale3.presentation.detailroutine.DetailRoutineViewModel
 import com.example.appurale3.data.models.Activity
@@ -47,6 +48,7 @@ fun AppNaveHost(
         navController = navController,
         startDestination = if (startOnHome) NavRoute.Home.route else NavRoute.Login.route
     ) {
+        // ========== PANTALLAS DE AUTENTICACIÓN ==========
         composable(NavRoute.Login.route) {
             LoginScreen(
                 onGoToRegister = { navController.navigate(NavRoute.Register.route) },
@@ -69,6 +71,7 @@ fun AppNaveHost(
             )
         }
 
+        // ========== PANTALLA PRINCIPAL ==========
         composable(NavRoute.Home.route) {
             HomeScreen(
                 onNavigateToAddRoutine = {
@@ -77,12 +80,44 @@ fun AppNaveHost(
                 onNavigateToDetailRoutine = { routineId ->
                     navController.navigate(NavRoute.DetailRoutine.pass(routineId))
                 },
+                onNavigateToCalendar = {
+                    navController.navigate(NavRoute.Calendar.route)
+                },
                 onNavigateToStatistics = {
-                    navController.navigate("statistics")
+                    navController.navigate(NavRoute.Statistics.route)
+                },
+                onNavigateToSettings = {
+                    navController.navigate(NavRoute.Settings.route)
                 }
             )
         }
 
+        // ========== PANTALLA DE CALENDARIO ==========
+        composable(NavRoute.Calendar.route) {
+            CalendarScreen(
+                userId = userId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddActivity = { routineId ->
+                    // Navegar a agregar actividad
+                }
+            )
+        }
+
+        // ========== PANTALLA DE ESTADÍSTICAS ==========
+        composable(NavRoute.Statistics.route) {
+            StatisticsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ========== PANTALLA DE CONFIGURACIÓN ==========
+        composable(NavRoute.Settings.route) {
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ========== AGREGAR RUTINA ==========
         composable(NavRoute.AddRoutine.route) {
             AddRoutineScreen(
                 userId = userId,
@@ -90,6 +125,7 @@ fun AppNaveHost(
             )
         }
 
+        // ========== DETALLE DE RUTINA ==========
         composable(
             route = NavRoute.DetailRoutine.route,
             arguments = listOf(
@@ -99,13 +135,10 @@ fun AppNaveHost(
             val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
             DetailRoutineScreen(
                 routineId = routineId,
-
                 onNavigateBack = { navController.popBackStack() },
-
                 onNavigateToAddActivity = { routineIdParam ->
                     navController.navigate(NavRoute.AddActivity.pass(routineIdParam))
                 },
-
                 onNavigateToEditActivity = { routineIdParam, activity ->
                     val activityJson = URLEncoder.encode(
                         Gson().toJson(activity),
@@ -113,16 +146,19 @@ fun AppNaveHost(
                     )
                     navController.navigate(NavRoute.AddActivity.pass(routineIdParam, activityJson))
                 },
-
-
-                onNavigateToActivityProgress = { rId, aId ->
-                    navController.navigate("activity_detail/$rId/$aId")
+                onNavigateToActivityProgress = { rId, aIndex ->
+                    navController.navigate(
+                        route = NavRoute.ActivityProgress.pass(
+                            routineId = rId,
+                            activityIndex = aIndex.toIntOrNull() ?: 0
+                        )
+                    )
                 },
-
                 viewModel = detailViewModel
             )
         }
 
+        // ========== AGREGAR/EDITAR ACTIVIDAD ==========
         composable(
             route = NavRoute.AddActivity.route,
             arguments = listOf(
@@ -151,17 +187,16 @@ fun AppNaveHost(
             )
         }
 
-        composable("statistics") {
-            StatisticsScreen(
-                onNavigateBack = { navController.popBackStack() }
+        // ========== PROGRESO DE ACTIVIDAD ==========
+        composable(
+            route = NavRoute.ActivityProgress.route,
+            arguments = listOf(
+                navArgument("routineId") { type = NavType.StringType },
+                navArgument("activityIndex") { type = NavType.IntType }
             )
-        }
-
-
-        composable("activity_detail/{routineId}/{index}") { backStackEntry ->
-
-            val routineId = backStackEntry.arguments?.getString("routineId") ?: return@composable
-            val index = backStackEntry.arguments?.getString("index")?.toIntOrNull()
+        ) { backStackEntry ->
+            val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
+            val activityIndex = backStackEntry.arguments?.getInt("activityIndex") ?: 0
 
             val uiState by detailViewModel.uiState.collectAsStateWithLifecycle()
 
@@ -171,16 +206,13 @@ fun AppNaveHost(
 
             val routine = uiState.routine
 
-            if (routine != null && index != null && index in routine.activities.indices) {
-
+            if (routine != null && activityIndex in routine.activities.indices) {
                 ActivityProgressScreen(
                     routine = routine,
-                    currentIndex = index,
+                    currentIndex = activityIndex,
                     onNext = { nextIndex ->
-                        val nextActivity = routine.activities[nextIndex]
-
-                        navController.navigate("activity_detail/$routineId/$nextIndex") {
-                            popUpTo("activity_detail/$routineId/$index") {
+                        navController.navigate(NavRoute.ActivityProgress.pass(routineId, nextIndex)) {
+                            popUpTo(NavRoute.ActivityProgress.pass(routineId, activityIndex)) {
                                 inclusive = true
                             }
                         }
@@ -192,10 +224,7 @@ fun AppNaveHost(
                         navController.popBackStack()
                     }
                 )
-
             } else {
-
-
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -206,6 +235,7 @@ fun AppNaveHost(
         }
     }
 
+    // Deep Link para abrir rutina directamente
     LaunchedEffect(deepLinkRutinaId) {
         if (startOnHome && !deepLinkRutinaId.isNullOrEmpty()) {
             navController.navigate(NavRoute.DetailRoutine.pass(deepLinkRutinaId))

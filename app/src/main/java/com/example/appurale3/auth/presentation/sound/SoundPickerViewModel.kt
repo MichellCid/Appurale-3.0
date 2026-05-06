@@ -38,12 +38,11 @@ class SoundPickerViewModel @Inject constructor(
     private fun loadSounds() {
         _uiState.value = _uiState.value.copy(
             defaultSounds = soundRepository.getDefaultSounds(),
-            customSounds = emptyList(),
+            customSounds = soundRepository.getCustomSounds(),
             isLoading = false
         )
     }
 
-    // Recibe ContentResolver como parámetro (desde la UI)
     fun addCustomSound(uri: Uri, contentResolver: ContentResolver, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
@@ -52,7 +51,6 @@ class SoundPickerViewModel @Inject constructor(
 
             result.fold(
                 onSuccess = { savedPath ->
-                    // Recargar la lista de sonidos personalizados
                     loadSounds()
                     _uiState.value = _uiState.value.copy(isLoading = false)
                     onSuccess(savedPath)
@@ -68,6 +66,13 @@ class SoundPickerViewModel @Inject constructor(
     }
 
     fun previewSound(uriString: String) {
+        if (uriString.isEmpty()) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "Este sonido no está disponible"
+            )
+            return
+        }
+
         try {
             mediaPlayer?.release()
             mediaPlayer = MediaPlayer().apply {
@@ -78,7 +83,7 @@ class SoundPickerViewModel @Inject constructor(
                     release()
                     mediaPlayer = null
                 }
-                setOnErrorListener { _, what, extra ->
+                setOnErrorListener { _, _, _ ->
                     _uiState.value = _uiState.value.copy(
                         errorMessage = "No se pudo reproducir el sonido"
                     )

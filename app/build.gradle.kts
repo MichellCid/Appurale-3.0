@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation(libs.core.ktx)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.compose.foundation)
     ksp(libs.hilt.compiler)
     implementation("com.google.firebase:firebase-firestore")
     implementation("androidx.activity:activity-compose:1.9.0")
@@ -72,8 +73,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
     implementation("com.google.code.gson:gson:2.10.1")
-    implementation("androidx.media:media:1.7.0")
-
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
