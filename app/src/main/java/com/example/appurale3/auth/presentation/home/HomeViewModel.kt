@@ -127,7 +127,8 @@ class HomeViewModel @Inject constructor(
                         description = routine.description,
                         category = routine.category,
                         totalActivities = routine.activities.size,
-                        completedActivities = completedCount  // ← AHORA USA EL VALOR REAL
+                        completedActivities = completedCount,
+                        active = routine.active
                     )
                 }
                 _routines.value = routineUiModels
@@ -157,8 +158,36 @@ class HomeViewModel @Inject constructor(
         _dailyProgress.value = if (total > 0) completed.toFloat() / total else 0f
     }
 
+
+
     fun startRoutine(routine: RoutineUiModel) {
         // TODO: Navegar a la pantalla de ejecución de rutina
+    }
+
+    fun toggleRoutineActive(routine: RoutineUiModel) {
+        viewModelScope.launch {
+            val newState = !routine.active
+
+            val result = routineRepository.updateRoutineActive(
+                routine.id,
+                newState
+            )
+
+            result.fold(
+                onSuccess = {
+                    _routines.value = _routines.value.map {
+                        if (it.id == routine.id) {
+                            it.copy(active = newState)
+                        } else it
+                    }
+
+                    _uiState.update { it.copy(routines = _routines.value) }
+                },
+                onFailure = {
+                    println("Error al actualizar estado: ${it.message}")
+                }
+            )
+        }
     }
 
     fun logout() {
@@ -196,7 +225,8 @@ class HomeViewModel @Inject constructor(
                                 description = routine.description,
                                 category = routine.category,
                                 totalActivities = routine.activities.size,
-                                completedActivities = routine.activities.count { it.completed }
+                                completedActivities = routine.activities.count { it.completed },
+                                active = routine.active
                             )
                         }
 

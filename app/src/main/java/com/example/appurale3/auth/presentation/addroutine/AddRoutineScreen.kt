@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,6 +61,7 @@ import java.util.Calendar
 import java.util.Date
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.ui.text.style.TextDecoration
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -339,7 +341,8 @@ fun AddRoutineScreen(
                             uiState.activities.forEach { activity ->
                                 ActivityRow(
                                     activity = activity,
-                                    onRemove = { viewModel.removeActivity(activity.id) }
+                                    onRemove = { viewModel.removeActivity(activity.id) },
+                                    onToggleActive = { viewModel.toggleActivityActive(activity.id) }
                                 )
                             }
                         }
@@ -506,13 +509,17 @@ fun AddRoutineScreen(
 @Composable
 fun ActivityRow(
     activity: Activity,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onToggleActive: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if(activity.active)
+                MaterialTheme.colorScheme.surfaceVariant
+            else
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
         Row(
@@ -528,7 +535,14 @@ fun ActivityRow(
                 Text(
                     text = activity.name,
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    color = if (activity.active)
+                        MaterialTheme.colorScheme.onSurface
+                    else
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    textDecoration = if (!activity.active)
+                        TextDecoration.LineThrough
+                    else null
                 )
                 if (activity.description.isNotEmpty()) {
                     Text(
@@ -553,6 +567,40 @@ fun ActivityRow(
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp)
                 )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = onToggleActive,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (activity.active)
+                                MaterialTheme.colorScheme.errorContainer
+                            else
+                                MaterialTheme.colorScheme.primary,
+                            contentColor = if (activity.active)
+                                MaterialTheme.colorScheme.onErrorContainer
+                            else
+                                MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (activity.active) "Desactivar" else "Activar",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+
+                    IconButton(onClick = onRemove) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Eliminar",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
         }
     }
