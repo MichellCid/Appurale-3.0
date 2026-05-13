@@ -97,8 +97,8 @@ fun AppNaveHost(
             CalendarScreen(
                 userId = userId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddActivity = { routineId ->
-                    // Navegar a agregar actividad
+                onNavigateToAddRoutine = {
+                    navController.navigate(NavRoute.AddRoutine.route)
                 }
             )
         }

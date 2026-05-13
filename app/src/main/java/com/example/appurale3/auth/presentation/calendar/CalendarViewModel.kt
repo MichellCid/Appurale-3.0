@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Collections.emptyList
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject

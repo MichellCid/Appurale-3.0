@@ -62,7 +62,7 @@ import java.util.Locale
 fun CalendarScreen(
     userId: String,
     onNavigateBack: () -> Unit,
-    onNavigateToAddActivity: (String) -> Unit = {},
+    onNavigateToAddRoutine: () -> Unit = {},
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -98,12 +98,12 @@ fun CalendarScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { onNavigateToAddActivity(userId) },
+                onClick = { onNavigateToAddRoutine() },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar actividad")
+                Icon(Icons.Default.Add, contentDescription = "Agregar rutina")
             }
         }
     ) { paddingValues ->
