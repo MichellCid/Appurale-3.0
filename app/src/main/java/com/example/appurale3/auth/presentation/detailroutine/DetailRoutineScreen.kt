@@ -2,8 +2,14 @@ package com.example.appurale3.presentation.detailroutine
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import java.util.Date
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -33,6 +40,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -80,6 +89,13 @@ fun DetailRoutineScreen(
     var isEditing by remember { mutableStateOf(false) }
     var editedRoutine by remember { mutableStateOf(uiState.routine) }
     val context = LocalContext.current
+    var showCategoryMenuEdit by remember { mutableStateOf(false) }
+    var showDatePickerEdit by remember { mutableStateOf(false) }
+    var showTimePickerEdit by remember { mutableStateOf(false) }
+    var isCustomCategoryEdit by remember { mutableStateOf(false) }
+    var customCategoryTextEdit by remember { mutableStateOf("") }
+    val categories = listOf("Trabajo", "Estudio", "Ejercicio", "Salud", "Personal", "Otro")
+    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
     // Estados para el diálogo de confirmación de eliminación de actividad (CU-03)
     var showDeleteActivityDialog by remember { mutableStateOf(false) }
@@ -261,7 +277,16 @@ fun DetailRoutineScreen(
                                     )
                                 }
                             } else {
-                                // Modo edición
+                                // Modo edición - NOMBRE
+                                OutlinedTextField(
+                                    value = editedRoutine?.name ?: "",
+                                    onValueChange = { editedRoutine = editedRoutine?.copy(name = it) },
+                                    label = { Text("Nombre de la rutina") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+
+                                // Modo edición - DESCRIPCIÓN
                                 OutlinedTextField(
                                     value = editedRoutine?.description ?: "",
                                     onValueChange = { editedRoutine = editedRoutine?.copy(description = it) },
@@ -270,18 +295,98 @@ fun DetailRoutineScreen(
                                     minLines = 2
                                 )
 
+                                // Modo edición - CATEGORÍA (con selector)
+                                Column {
+                                    OutlinedTextField(
+                                        value = if (isCustomCategoryEdit) customCategoryTextEdit else (editedRoutine?.category ?: ""),
+                                        onValueChange = { newValue ->
+                                            if (isCustomCategoryEdit) {
+                                                customCategoryTextEdit = newValue
+                                                editedRoutine = editedRoutine?.copy(category = newValue)
+                                            } else {
+                                                editedRoutine = editedRoutine?.copy(category = newValue)
+                                            }
+                                        },
+                                        label = { Text("Categoría") },
+                                        placeholder = { Text("Seleccionar o escribir categoría") },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                isCustomCategoryEdit = false
+                                                showCategoryMenuEdit = true
+                                            },
+                                        trailingIcon = {
+                                            IconButton(onClick = { showCategoryMenuEdit = true }) {
+                                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Seleccionar")
+                                            }
+                                        }
+                                    )
+                                    DropdownMenu(
+                                        expanded = showCategoryMenuEdit,
+                                        onDismissRequest = { showCategoryMenuEdit = false }
+                                    ) {
+                                        categories.forEach { category ->
+                                            DropdownMenuItem(
+                                                text = { Text(category) },
+                                                onClick = {
+                                                    isCustomCategoryEdit = false
+                                                    editedRoutine = editedRoutine?.copy(category = category)
+                                                    showCategoryMenuEdit = false
+                                                }
+                                            )
+                                        }
+                                        DropdownMenuItem(
+                                            text = { Text("✏️ Escribir categoría personalizada") },
+                                            onClick = {
+                                                isCustomCategoryEdit = true
+                                                customCategoryTextEdit = ""
+                                                editedRoutine = editedRoutine?.copy(category = "")
+                                                showCategoryMenuEdit = false
+                                            }
+                                        )
+                                    }
+                                }
+
+                                // Modo edición - FECHA
                                 OutlinedTextField(
-                                    value = editedRoutine?.category ?: "",
-                                    onValueChange = { editedRoutine = editedRoutine?.copy(category = it) },
-                                    label = { Text("Categoría") },
-                                    modifier = Modifier.fillMaxWidth()
+                                    value = editedRoutine?.date?.let { dateFormat.format(it) } ?: "",
+                                    onValueChange = {},
+                                    label = { Text("Fecha") },
+                                    placeholder = { Text("DD/MM/AAAA") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { showDatePickerEdit = true },
+                                    readOnly = true,
+                                    trailingIcon = {
+                                        IconButton(onClick = { showDatePickerEdit = true }) {
+                                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Seleccionar fecha")
+                                        }
+                                    }
+                                )
+
+                                // Modo edición - HORA
+                                OutlinedTextField(
+                                    value = editedRoutine?.hour ?: "",
+                                    onValueChange = { editedRoutine = editedRoutine?.copy(hour = it) },
+                                    label = { Text("Hora") },
+                                    placeholder = { Text("HH:MM") },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { showTimePickerEdit = true },
+                                    readOnly = true,
+                                    trailingIcon = {
+                                        IconButton(onClick = { showTimePickerEdit = true }) {
+                                            Text("🕐")
+                                        }
+                                    }
                                 )
 
                                 OutlinedTextField(
                                     value = editedRoutine?.duration?.toString() ?: "",
                                     onValueChange = { editedRoutine = editedRoutine?.copy(duration = it.toIntOrNull() ?: 0) },
                                     label = { Text("Duración (minutos)") },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
                                 )
                             }
                         }
@@ -388,6 +493,60 @@ fun DetailRoutineScreen(
                 item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
+    }
+
+    // DatePicker Dialog para edición
+    if (showDatePickerEdit) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = editedRoutine?.date?.time ?: System.currentTimeMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePickerEdit = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            editedRoutine = editedRoutine?.copy(date = Date(millis))
+                        }
+                        showDatePickerEdit = false
+                    }
+                ) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePickerEdit = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(state = datePickerState, showModeToggle = false)
+        }
+    }
+
+// TimePicker Dialog para edición
+    if (showTimePickerEdit) {
+        val initialHour = editedRoutine?.hour?.split(":")?.getOrNull(0)?.toIntOrNull() ?: 12
+        val initialMinute = editedRoutine?.hour?.split(":")?.getOrNull(1)?.toIntOrNull() ?: 0
+        val timePickerState = rememberTimePickerState(
+            initialHour = initialHour,
+            initialMinute = initialMinute,
+            is24Hour = true
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePickerEdit = false },
+            title = { Text("Seleccionar hora") },
+            text = { TimePicker(state = timePickerState) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val hour = timePickerState.hour.toString().padStart(2, '0')
+                        val minute = timePickerState.minute.toString().padStart(2, '0')
+                        editedRoutine = editedRoutine?.copy(hour = "$hour:$minute")
+                        showTimePickerEdit = false
+                    }
+                ) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePickerEdit = false }) { Text("Cancelar") }
+            }
+        )
     }
 
     // Diálogo de confirmación para eliminar rutina (CU-07)
