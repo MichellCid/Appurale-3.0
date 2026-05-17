@@ -60,6 +60,9 @@ class HomeViewModel @Inject constructor(
     private val _suggestions = MutableStateFlow<List<RoutineUiModel>>(emptyList())
     val suggestions: StateFlow<List<RoutineUiModel>> = _suggestions
 
+    // Callback para navegar a ejecutar rutina
+    private var onStartRoutineCallback: ((String) -> Unit)? = null
+
 
     init {
         loadUserData()
@@ -158,10 +161,12 @@ class HomeViewModel @Inject constructor(
         _dailyProgress.value = if (total > 0) completed.toFloat() / total else 0f
     }
 
-
-
     fun startRoutine(routine: RoutineUiModel) {
-        // TODO: Navegar a la pantalla de ejecución de rutina
+        onStartRoutineCallback?.invoke(routine.id)
+    }
+
+    fun setOnStartRoutine(callback: (String) -> Unit) {
+        onStartRoutineCallback = callback
     }
 
     fun toggleRoutineActive(routine: RoutineUiModel) {

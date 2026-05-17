@@ -29,6 +29,7 @@ import com.example.appurale3.auth.presentation.calendar.CalendarScreen
 import com.example.appurale3.presentation.detailroutine.DetailRoutineScreen
 import com.example.appurale3.presentation.detailroutine.DetailRoutineViewModel
 import com.example.appurale3.data.models.Activity
+import com.example.appurale3.presentation.executeroutine.ExecuteRoutineScreen
 import com.google.gson.Gson
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -76,6 +77,9 @@ fun AppNaveHost(
             HomeScreen(
                 onNavigateToAddRoutine = {
                     navController.navigate(NavRoute.AddRoutine.route)
+                },
+                onNavigateToExecuteRoutine = { routineId ->  // ← NUEVO
+                    navController.navigate(NavRoute.ExecuteRoutine.pass(routineId))
                 },
                 onNavigateToDetailRoutine = { routineId ->
                     navController.navigate(NavRoute.DetailRoutine.pass(routineId))
@@ -233,7 +237,26 @@ fun AppNaveHost(
                 }
             }
         }
+
+        // NUEVA RUTA PARA EJECUTAR RUTINA
+        composable(
+            route = NavRoute.ExecuteRoutine.route,
+            arguments = listOf(
+                navArgument("routineId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val routineId = backStackEntry.arguments?.getString("routineId") ?: ""
+            ExecuteRoutineScreen(
+                routineId = routineId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
+
+    if (startOnHome && !deepLinkRutinaId.isNullOrEmpty()) {
+        navController.navigate(NavRoute.DetailRoutine.pass(deepLinkRutinaId))
+    }
+
 
     // Deep Link para abrir rutina directamente
     LaunchedEffect(deepLinkRutinaId) {

@@ -21,4 +21,8 @@ sealed class NavRoute(val route: String) {
     data object ActivityProgress : NavRoute("activity_detail/{routineId}/{activityIndex}") {
         fun pass(routineId: String, activityIndex: Int) = "activity_detail/$routineId/$activityIndex"
     }
+
+    data object ExecuteRoutine : NavRoute("execute_routine/{routineId}") {
+        fun pass(routineId: String) = "execute_routine/$routineId"
+    }
 }

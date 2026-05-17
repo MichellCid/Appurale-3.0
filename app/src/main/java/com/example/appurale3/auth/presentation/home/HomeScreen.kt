@@ -77,12 +77,18 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     onNavigateToAddRoutine: () -> Unit = {},
+    onNavigateToExecuteRoutine: (String) -> Unit = {},
     onNavigateToDetailRoutine: (String) -> Unit = {},
     onNavigateToCalendar: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     vm: HomeViewModel = hiltViewModel()
 ) {
+    LaunchedEffect(Unit) {
+        vm.setOnStartRoutine { routineId ->
+            onNavigateToExecuteRoutine(routineId)
+        }
+    }
     // Recargar rutinas automáticamente cuando la pantalla está activa
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(Unit) {
