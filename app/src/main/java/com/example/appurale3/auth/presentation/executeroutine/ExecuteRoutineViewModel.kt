@@ -1,5 +1,8 @@
 package com.example.appurale3.presentation.executeroutine
 
+import android.content.Context
+import android.media.MediaPlayer
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.appurale3.data.models.Activity
@@ -20,9 +23,10 @@ data class ExecuteRoutineUiState(
     val isLoading: Boolean = false,
     val currentActivity: Activity? = null,
     val currentActivityIndex: Int = 0,
-    val timeRemaining: Int = 0, // en segundos
+    val timeRemaining: Int = 0,
     val isRunning: Boolean = false,
     val isPaused: Boolean = false,
+    val isCompleted: Boolean = false,  // ← AGREGADO
     val routineProgress: Float = 0f,
     val completedActivities: Int = 0,
     val errorMessage: String? = null
@@ -37,6 +41,33 @@ class ExecuteRoutineViewModel @Inject constructor(
     val uiState: StateFlow<ExecuteRoutineUiState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
+    private var mediaPlayer: MediaPlayer? = null
+
+    fun playRoutineSound(context: Context, soundUri: String?) {
+        try {
+            mediaPlayer?.release()
+
+            val uri = if (!soundUri.isNullOrEmpty()) {
+                Uri.parse(soundUri)
+            } else {
+                android.provider.Settings.System.DEFAULT_NOTIFICATION_URI
+            }
+
+            mediaPlayer = MediaPlayer.create(context, uri)
+            mediaPlayer?.start()
+            mediaPlayer?.setOnCompletionListener {
+                mediaPlayer?.release()
+                mediaPlayer = null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun releaseMediaPlayer() {
+        mediaPlayer?.release()
+        mediaPlayer = null
+    }
 
     fun loadRoutine(routineId: String) {
         viewModelScope.launch {
@@ -54,6 +85,7 @@ class ExecuteRoutineViewModel @Inject constructor(
                             timeRemaining = firstActivity?.duration?.times(60) ?: 0,
                             isRunning = true,
                             isPaused = false,
+                            isCompleted = false,
                             routineProgress = 0f,
                             completedActivities = 0
                         )
@@ -77,31 +109,30 @@ class ExecuteRoutineViewModel @Inject constructor(
                 delay(1000)
                 val currentState = _uiState.value
 
-                if (!currentState.isRunning || currentState.isPaused) {
+                if (!currentState.isRunning || currentState.isPaused || currentState.isCompleted) {
                     continue
                 }
 
                 if (currentState.timeRemaining <= 1) {
-                    // Actividad completada
                     val newIndex = currentState.currentActivityIndex + 1
                     val routine = currentState.routine
 
                     if (routine != null && newIndex < routine.activities.size) {
-                        // Siguiente actividad
                         val nextActivity = routine.activities[newIndex]
                         _uiState.update {
                             it.copy(
                                 currentActivityIndex = newIndex,
+                                currentActivity = nextActivity,
                                 timeRemaining = nextActivity.duration * 60,
                                 completedActivities = newIndex,
                                 routineProgress = newIndex.toFloat() / routine.activities.size
                             )
                         }
                     } else {
-                        // Rutina completada
                         _uiState.update {
                             it.copy(
                                 isRunning = false,
+                                isCompleted = true,
                                 routineProgress = 1f,
                                 completedActivities = routine?.activities?.size ?: 0
                             )
@@ -152,7 +183,7 @@ class ExecuteRoutineViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     currentActivityIndex = currentState.currentActivityIndex + 1,
-                    currentActivity = nextActivity,  // ← AGREGAR
+                    currentActivity = nextActivity,
                     timeRemaining = nextActivity.duration * 60,
                     isRunning = true,
                     isPaused = false,
@@ -176,7 +207,7 @@ class ExecuteRoutineViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     currentActivityIndex = index,
-                    currentActivity = activity,  // ← AGREGAR
+                    currentActivity = activity,
                     timeRemaining = activity.duration * 60,
                     isRunning = true,
                     isPaused = false,
@@ -190,11 +221,19 @@ class ExecuteRoutineViewModel @Inject constructor(
 
     fun completeRoutine() {
         timerJob?.cancel()
-        // TODO: Guardar progreso en Firestore
+        _uiState.update {
+            it.copy(
+                isRunning = false,
+                isCompleted = true,
+                routineProgress = 1f,
+                completedActivities = _uiState.value.routine?.activities?.size ?: 0
+            )
+        }
     }
 
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        releaseMediaPlayer()
     }
 }

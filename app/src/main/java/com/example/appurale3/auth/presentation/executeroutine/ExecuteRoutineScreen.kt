@@ -1,9 +1,9 @@
 package com.example.appurale3.presentation.executeroutine
 
+import android.media.MediaPlayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -28,14 +30,17 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,12 +48,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.appurale3.data.models.Activity
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +62,29 @@ fun ExecuteRoutineScreen(
     onNavigateBack: () -> Unit,
     viewModel: ExecuteRoutineViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Reproducir sonido al iniciar la rutina
+    LaunchedEffect(uiState.isRunning) {
+        if (uiState.isRunning && uiState.currentActivity != null && !uiState.isCompleted) {
+            viewModel.playRoutineSound(context, uiState.routine?.soundUri)
+        }
+    }
+
+    // Reproducir sonido al completar la rutina
+    LaunchedEffect(uiState.isCompleted) {
+        if (uiState.isCompleted) {
+            viewModel.playRoutineSound(context, uiState.routine?.soundUri)
+        }
+    }
+
+    // Liberar MediaPlayer al salir
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.releaseMediaPlayer()
+        }
+    }
 
     LaunchedEffect(routineId) {
         viewModel.loadRoutine(routineId)
@@ -76,8 +103,33 @@ fun ExecuteRoutineScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
                     }
+                },
+                actions = {
+                    // Botón de Finalizar
+                    if (!uiState.isCompleted && uiState.routine != null) {
+                        TextButton(
+                            onClick = {
+                                viewModel.completeRoutine()
+                            }
+                        ) {
+                            Icon(Icons.Default.Check, contentDescription = "Finalizar")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Finalizar")
+                        }
+                    }
                 }
             )
+        },
+        floatingActionButton = {
+            if (uiState.isCompleted) {
+                FloatingActionButton(
+                    onClick = onNavigateBack,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                }
+            }
         }
     ) { paddingValues ->
         if (uiState.isLoading) {
@@ -97,6 +149,52 @@ fun ExecuteRoutineScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text("No se encontró la rutina")
+            }
+        } else if (uiState.isCompleted) {
+            // Pantalla de rutina completada
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🎉", style = MaterialTheme.typography.displayLarge)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "¡Rutina completada!",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Has completado todos los ejercicios",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = onNavigateBack,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text("Volver al inicio")
+                        }
+                    }
+                }
             }
         } else {
             val routine = uiState.routine!!
@@ -242,7 +340,6 @@ fun ExecuteRoutineScreen(
                                         onClick = {
                                             if (currentIndex + 1 >= routine.activities.size) {
                                                 viewModel.completeRoutine()
-                                                onNavigateBack()
                                             } else {
                                                 viewModel.nextActivity()
                                             }
@@ -278,10 +375,7 @@ fun ExecuteRoutineScreen(
                         isCurrent = index == currentIndex,
                         isCompleted = index < currentIndex,
                         onClick = {
-                            if (index > currentIndex) {
-                                // No se puede saltar a actividades futuras
-                            } else if (index < currentIndex) {
-                                // Volver a actividad anterior
+                            if (index < currentIndex) {
                                 viewModel.goToActivity(index)
                             }
                         }
@@ -321,7 +415,6 @@ fun ExecuteActivityItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Indicador de estado
             Box(
                 modifier = Modifier
                     .size(32.dp)
@@ -378,9 +471,14 @@ fun ExecuteActivityItem(
         }
     }
 }
+
 fun formatTime(seconds: Int): String {
     val hours = seconds / 3600
     val minutes = (seconds % 3600) / 60
     val remainingSeconds = seconds % 60
-    return String.format("%02d:%02d:%02d", hours, minutes, remainingSeconds)
+    return if (hours > 0) {
+        String.format("%02d:%02d:%02d", hours, minutes, remainingSeconds)
+    } else {
+        String.format("%02d:%02d", minutes, remainingSeconds)
+    }
 }
