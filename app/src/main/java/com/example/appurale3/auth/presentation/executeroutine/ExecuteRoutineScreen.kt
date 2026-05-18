@@ -1,6 +1,5 @@
 package com.example.appurale3.presentation.executeroutine
 
-import android.media.MediaPlayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,7 +29,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -43,9 +41,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -65,24 +60,22 @@ fun ExecuteRoutineScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Reproducir sonido al iniciar la rutina
-    LaunchedEffect(uiState.isRunning) {
-        if (uiState.isRunning && uiState.currentActivity != null && !uiState.isCompleted) {
-            viewModel.playRoutineSound(context, uiState.routine?.soundUri)
+    // Configurar callbacks
+    LaunchedEffect(Unit) {
+        viewModel.setOnPlayCompletionSound { soundUri ->
+            viewModel.playCompletionSound(context, soundUri)
+        }
+        viewModel.setOnRoutineCompleted { soundUri, routineName ->
+            // Iniciar alarma en bucle
+            viewModel.startAlarmSound(context, soundUri)
+            viewModel.showCompletionNotification(context, routineName)
         }
     }
 
-    // Reproducir sonido al completar la rutina
-    LaunchedEffect(uiState.isCompleted) {
-        if (uiState.isCompleted) {
-            viewModel.playRoutineSound(context, uiState.routine?.soundUri)
-        }
-    }
-
-    // Liberar MediaPlayer al salir
+    // Liberar recursos al salir
     DisposableEffect(Unit) {
         onDispose {
-            viewModel.releaseMediaPlayer()
+            viewModel.releaseAllPlayers()
         }
     }
 
@@ -105,12 +98,9 @@ fun ExecuteRoutineScreen(
                     }
                 },
                 actions = {
-                    // Botón de Finalizar
                     if (!uiState.isCompleted && uiState.routine != null) {
                         TextButton(
-                            onClick = {
-                                viewModel.completeRoutine()
-                            }
+                            onClick = { viewModel.completeRoutine() }
                         ) {
                             Icon(Icons.Default.Check, contentDescription = "Finalizar")
                             Spacer(modifier = Modifier.width(4.dp))
@@ -119,17 +109,6 @@ fun ExecuteRoutineScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            if (uiState.isCompleted) {
-                FloatingActionButton(
-                    onClick = onNavigateBack,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
-                }
-            }
         }
     ) { paddingValues ->
         if (uiState.isLoading) {
@@ -151,7 +130,7 @@ fun ExecuteRoutineScreen(
                 Text("No se encontró la rutina")
             }
         } else if (uiState.isCompleted) {
-            // Pantalla de rutina completada
+            // Pantalla de rutina completada CON BOTÓN PARA DETENER ALARMA
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -185,13 +164,21 @@ fun ExecuteRoutineScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(24.dp))
+
+                        // Botón para DETENER ALARMA y finalizar
                         Button(
-                            onClick = onNavigateBack,
+                            onClick = {
+                                viewModel.finishRoutineAndStopAlarm()
+                                onNavigateBack()
+                            },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary
-                            )
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Volver al inicio")
+                            Icon(Icons.Default.Check, contentDescription = "Finalizar")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("FINALIZAR RUTINA")
                         }
                     }
                 }
@@ -211,7 +198,7 @@ fun ExecuteRoutineScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Progreso general de la rutina
+                // Progreso general
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -220,20 +207,12 @@ fun ExecuteRoutineScreen(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
                         )
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Progreso de la rutina",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Progreso de la rutina", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(8.dp))
                             LinearProgressIndicator(
                                 progress = uiState.routineProgress,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
+                                modifier = Modifier.fillMaxWidth().height(8.dp)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -258,37 +237,21 @@ fun ExecuteRoutineScreen(
                                 modifier = Modifier.padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text(
-                                    text = "Actividad actual",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                                Text("Actividad actual", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = currentActivity.name,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Text(currentActivity.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                                 if (currentActivity.description.isNotEmpty()) {
-                                    Text(
-                                        text = currentActivity.description,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    Text(currentActivity.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                // Temporizador
-                                Text(
-                                    text = formatTime(timeRemaining),
-                                    style = MaterialTheme.typography.displayLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                                Text(formatTime(timeRemaining), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                // Botones de control
+                                // Dentro de la Card de "Actividad actual", después del temporizador
+
+// Botones de control
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.Center,
@@ -360,25 +323,14 @@ fun ExecuteRoutineScreen(
                     }
                 }
 
-                // Lista de actividades de la rutina
-                item {
-                    Text(
-                        text = "Lista de actividades",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                item { Text("Lista de actividades", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
 
                 itemsIndexed(routine.activities) { index, activity ->
                     ExecuteActivityItem(
                         activity = activity,
                         isCurrent = index == currentIndex,
                         isCompleted = index < currentIndex,
-                        onClick = {
-                            if (index < currentIndex) {
-                                viewModel.goToActivity(index)
-                            }
-                        }
+                        onClick = { if (index < currentIndex) viewModel.goToActivity(index) }
                     )
                 }
 
@@ -396,9 +348,7 @@ fun ExecuteActivityItem(
     onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = isCompleted) { onClick() },
+        modifier = Modifier.fillMaxWidth().clickable(enabled = isCompleted) { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = when {
@@ -406,67 +356,28 @@ fun ExecuteActivityItem(
                 isCompleted -> MaterialTheme.colorScheme.surfaceVariant
                 else -> MaterialTheme.colorScheme.surface
             }
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isCurrent) 4.dp else 1.dp)
+        )
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .padding(4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isCompleted) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = "Completada",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                } else if (isCurrent) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = "En curso",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                } else {
-                    Text(
-                        text = (activity.duration / 60).toString(),
-                        style = MaterialTheme.typography.bodySmall
-                    )
+            Box(modifier = Modifier.size(32.dp).padding(4.dp), contentAlignment = Alignment.Center) {
+                when {
+                    isCompleted -> Icon(Icons.Default.CheckCircle, contentDescription = "Completada", tint = MaterialTheme.colorScheme.primary)
+                    isCurrent -> Icon(Icons.Default.PlayArrow, contentDescription = "En curso", tint = MaterialTheme.colorScheme.primary)
+                    else -> Text((activity.duration / 60).toString(), style = MaterialTheme.typography.bodySmall)
                 }
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = activity.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
-                )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(activity.name, style = MaterialTheme.typography.bodyLarge, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal)
                 if (activity.duration > 0) {
-                    Text(
-                        text = "⏱️ ${activity.duration} min",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("⏱️ ${activity.duration} min", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-
             if (isCurrent) {
-                Text(
-                    text = "EN CURSO",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("EN CURSO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -476,9 +387,6 @@ fun formatTime(seconds: Int): String {
     val hours = seconds / 3600
     val minutes = (seconds % 3600) / 60
     val remainingSeconds = seconds % 60
-    return if (hours > 0) {
-        String.format("%02d:%02d:%02d", hours, minutes, remainingSeconds)
-    } else {
-        String.format("%02d:%02d", minutes, remainingSeconds)
-    }
+    return if (hours > 0) String.format("%02d:%02d:%02d", hours, minutes, remainingSeconds)
+    else String.format("%02d:%02d", minutes, remainingSeconds)
 }

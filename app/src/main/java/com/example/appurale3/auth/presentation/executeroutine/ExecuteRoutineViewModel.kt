@@ -1,10 +1,16 @@
 package com.example.appurale3.presentation.executeroutine
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
+import androidx.core.app.NotificationCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.appurale3.MainActivity
 import com.example.appurale3.data.models.Activity
 import com.example.appurale3.data.models.Routine
 import com.example.appurale3.data.repositories.RoutineRepository
@@ -26,7 +32,7 @@ data class ExecuteRoutineUiState(
     val timeRemaining: Int = 0,
     val isRunning: Boolean = false,
     val isPaused: Boolean = false,
-    val isCompleted: Boolean = false,  // ← AGREGADO
+    val isCompleted: Boolean = false,
     val routineProgress: Float = 0f,
     val completedActivities: Int = 0,
     val errorMessage: String? = null
@@ -41,11 +47,30 @@ class ExecuteRoutineViewModel @Inject constructor(
     val uiState: StateFlow<ExecuteRoutineUiState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
-    private var mediaPlayer: MediaPlayer? = null
+    private var alarmMediaPlayer: MediaPlayer? = null  // Para el sonido de alarma en bucle
+    private var completionMediaPlayer: MediaPlayer? = null  // Para sonidos cortos
 
-    fun playRoutineSound(context: Context, soundUri: String?) {
+    // Callbacks para la UI
+    private var onPlayCompletionSound: ((String?) -> Unit)? = null
+    private var onRoutineCompleted: ((String?, String) -> Unit)? = null
+    private var onStopAlarmSound: (() -> Unit)? = null
+
+    fun setOnPlayCompletionSound(callback: (String?) -> Unit) {
+        onPlayCompletionSound = callback
+    }
+
+    fun setOnRoutineCompleted(callback: (String?, String) -> Unit) {
+        onRoutineCompleted = callback
+    }
+
+    fun setOnStopAlarmSound(callback: () -> Unit) {
+        onStopAlarmSound = callback
+    }
+
+    // Sonido corto para completar actividad
+    fun playCompletionSound(context: Context, soundUri: String?) {
         try {
-            mediaPlayer?.release()
+            completionMediaPlayer?.release()
 
             val uri = if (!soundUri.isNullOrEmpty()) {
                 Uri.parse(soundUri)
@@ -53,20 +78,94 @@ class ExecuteRoutineViewModel @Inject constructor(
                 android.provider.Settings.System.DEFAULT_NOTIFICATION_URI
             }
 
-            mediaPlayer = MediaPlayer.create(context, uri)
-            mediaPlayer?.start()
-            mediaPlayer?.setOnCompletionListener {
-                mediaPlayer?.release()
-                mediaPlayer = null
+            completionMediaPlayer = MediaPlayer.create(context, uri)
+            completionMediaPlayer?.start()
+            completionMediaPlayer?.setOnCompletionListener {
+                completionMediaPlayer?.release()
+                completionMediaPlayer = null
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    fun releaseMediaPlayer() {
-        mediaPlayer?.release()
-        mediaPlayer = null
+    // SONIDO DE ALARMA EN BUCLE al completar la rutina
+    fun startAlarmSound(context: Context, soundUri: String?) {
+        try {
+            stopAlarmSound() // Detener cualquier sonido previo
+
+            val uri = if (!soundUri.isNullOrEmpty()) {
+                Uri.parse(soundUri)
+            } else {
+                android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
+            }
+
+            alarmMediaPlayer = MediaPlayer.create(context, uri).apply {
+                isLooping = true  // ← En bucle infinito
+                start()
+                setOnErrorListener { _, _, _ ->
+                    stopAlarmSound()
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun stopAlarmSound() {
+        alarmMediaPlayer?.apply {
+            stop()
+            release()
+        }
+        alarmMediaPlayer = null
+        onStopAlarmSound?.invoke()
+    }
+
+    fun stopCompletionSound() {
+        completionMediaPlayer?.release()
+        completionMediaPlayer = null
+    }
+
+    fun releaseAllPlayers() {
+        stopAlarmSound()
+        stopCompletionSound()
+    }
+
+    fun showCompletionNotification(context: Context, routineName: String) {
+        val channelId = "routine_completion_channel"
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Finalización de rutinas",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notificaciones cuando se completa una rutina"
+                enableVibration(true)
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("🎉 Rutina completada")
+            .setContentText("¡Has completado la rutina $routineName!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        notificationManager.notify(1001, notification)
     }
 
     fun loadRoutine(routineId: String) {
@@ -118,6 +217,9 @@ class ExecuteRoutineViewModel @Inject constructor(
                     val routine = currentState.routine
 
                     if (routine != null && newIndex < routine.activities.size) {
+                        // Sonido al completar actividad
+                        onPlayCompletionSound?.invoke(routine.soundUri)
+
                         val nextActivity = routine.activities[newIndex]
                         _uiState.update {
                             it.copy(
@@ -129,6 +231,8 @@ class ExecuteRoutineViewModel @Inject constructor(
                             )
                         }
                     } else {
+                        // RUTINA COMPLETADA - INICIAR ALARMA EN BUCLE
+                        onRoutineCompleted?.invoke(routine?.soundUri, routine?.name ?: "")
                         _uiState.update {
                             it.copy(
                                 isRunning = false,
@@ -179,6 +283,8 @@ class ExecuteRoutineViewModel @Inject constructor(
         val routine = currentState.routine
 
         if (routine != null && currentState.currentActivityIndex + 1 < routine.activities.size) {
+            onPlayCompletionSound?.invoke(routine.soundUri)
+
             val nextActivity = routine.activities[currentState.currentActivityIndex + 1]
             _uiState.update {
                 it.copy(
@@ -221,19 +327,27 @@ class ExecuteRoutineViewModel @Inject constructor(
 
     fun completeRoutine() {
         timerJob?.cancel()
+        val routine = _uiState.value.routine
+
+        onRoutineCompleted?.invoke(routine?.soundUri, routine?.name ?: "")
+
         _uiState.update {
             it.copy(
                 isRunning = false,
                 isCompleted = true,
                 routineProgress = 1f,
-                completedActivities = _uiState.value.routine?.activities?.size ?: 0
+                completedActivities = routine?.activities?.size ?: 0
             )
         }
+    }
+
+    fun finishRoutineAndStopAlarm() {
+        stopAlarmSound()
     }
 
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
-        releaseMediaPlayer()
+        releaseAllPlayers()
     }
 }
