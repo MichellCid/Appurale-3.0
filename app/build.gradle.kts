@@ -74,6 +74,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
     implementation("com.google.code.gson:gson:2.10.1")
+    // Sensor de movimiento
+    implementation("androidx.compose.material:material:1.7.5")
+    // Para manejo de sensores
+    implementation ("com.google.accompanist:accompanist-permissions:0.35.0-alpha")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

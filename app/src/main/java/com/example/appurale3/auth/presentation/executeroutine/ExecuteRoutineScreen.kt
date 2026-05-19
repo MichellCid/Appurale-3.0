@@ -4,6 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import android.hardware.Sensor
+import android.hardware.SensorManager
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,30 +60,86 @@ fun ExecuteRoutineScreen(
     onNavigateBack: () -> Unit,
     viewModel: ExecuteRoutineViewModel = hiltViewModel()
 ) {
+
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Configurar callbacks
-    LaunchedEffect(Unit) {
-        viewModel.setOnPlayCompletionSound { soundUri ->
-            viewModel.playCompletionSound(context, soundUri)
-        }
-        viewModel.setOnRoutineCompleted { soundUri, routineName ->
-            // Iniciar alarma en bucle
-            viewModel.startAlarmSound(context, soundUri)
-            viewModel.showCompletionNotification(context, routineName)
+    // SENSOR
+    val sensorManager = remember {
+        context.getSystemService(
+            SensorManager::class.java
+        )
+    }
+
+    val accelerometer = remember {
+        sensorManager?.getDefaultSensor(
+            Sensor.TYPE_ACCELEROMETER
+        )
+    }
+
+    val shakeDetector = remember {
+        ShakeDetector {
+
+            // Hace lo mismo que FINALIZAR RUTINA
+            viewModel.finishRoutineAndStopAlarm()
+            onNavigateBack()
         }
     }
 
-    // Liberar recursos al salir
+    // Configurar callbacks
+    LaunchedEffect(Unit) {
+
+        viewModel.setOnPlayCompletionSound { soundUri ->
+            viewModel.playCompletionSound(
+                context,
+                soundUri
+            )
+        }
+
+        viewModel.setOnRoutineCompleted { soundUri, routineName ->
+
+            viewModel.startAlarmSound(
+                context,
+                soundUri
+            )
+
+            viewModel.showCompletionNotification(
+                context,
+                routineName
+            )
+        }
+    }
+
+    // Libera recursos SOLO al salir de pantalla
     DisposableEffect(Unit) {
         onDispose {
             viewModel.releaseAllPlayers()
         }
     }
+    
+// Sensor únicamente cuando termina la rutina
+    DisposableEffect(uiState.isCompleted) {
+
+        if (uiState.isCompleted) {
+
+            sensorManager?.registerListener(
+                shakeDetector,
+                accelerometer,
+                SensorManager.SENSOR_DELAY_NORMAL
+            )
+        }
+
+        onDispose {
+            sensorManager?.unregisterListener(
+                shakeDetector
+            )
+        }
+    }
 
     LaunchedEffect(routineId) {
-        viewModel.loadRoutine(routineId)
+        viewModel.loadRoutine(
+            routineId
+        )
     }
 
     Scaffold(
@@ -162,6 +221,12 @@ fun ExecuteRoutineScreen(
                             text = "Has completado todos los ejercicios",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Agita el teléfono de izquierda a derecha para detener la alarma",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(24.dp))
 
