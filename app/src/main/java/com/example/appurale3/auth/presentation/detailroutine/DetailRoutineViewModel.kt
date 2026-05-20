@@ -1,9 +1,13 @@
 package com.example.appurale3.presentation.detailroutine
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.appurale3.data.models.Activity
+import com.example.appurale3.data.models.ActivityTimer
 import com.example.appurale3.data.models.Routine
+import com.example.appurale3.data.models.repositories.TimerRepository
 import com.example.appurale3.data.repositories.RoutineRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +31,8 @@ data class DetailRoutineUiState(
 
 @HiltViewModel
 class DetailRoutineViewModel @Inject constructor(
-    private val routineRepository: RoutineRepository
+    private val routineRepository: RoutineRepository,
+    private val timerRepository: TimerRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DetailRoutineUiState())
@@ -39,6 +44,8 @@ class DetailRoutineViewModel @Inject constructor(
     val activities: StateFlow<List<Activity>> = _uiState.asStateFlow().map { it.routine?.activities ?: emptyList() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _uiState.value.routine?.activities ?: emptyList())
 
+    private val _timers = MutableStateFlow<Map<String, ActivityTimer>>(emptyMap())
+    val timers: StateFlow<Map<String, ActivityTimer>> = _timers
 
     /**fun loadRoutine(routineId: String, userId: String) {
         viewModelScope.launch {
@@ -155,5 +162,110 @@ class DetailRoutineViewModel @Inject constructor(
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
+
+    fun loadTimer(activityId: String, userId: String) {
+        viewModelScope.launch {
+            val existingTimer = timerRepository.getTimer(userId, activityId)
+
+            val timer = if (existingTimer != null) {
+                existingTimer
+            } else {
+
+                ActivityTimer(
+                    activityId = activityId,
+                    startTime = System.currentTimeMillis(),
+                    accumulatedTime = 0L,
+                    isRunning = true
+                ).also {
+                    timerRepository.saveTimer(userId, it)
+                }
+            }
+
+            _timers.value = _timers.value + (activityId to timer)
+        }
+    }
+
+    fun startTimer(activityId: String, userId: String) {
+        val now = System.currentTimeMillis()
+        val current = _timers.value[activityId]
+
+        val updated = ActivityTimer(
+            activityId = activityId,
+            startTime = now,
+            accumulatedTime = current?.accumulatedTime ?: 0L,
+            isRunning = true
+        )
+
+        _timers.value = _timers.value + (activityId to updated)
+
+        viewModelScope.launch {
+            timerRepository.saveTimer(userId, updated)
+        }
+    }
+
+    fun pauseTimer(activityId: String, userId: String) {
+        val now = System.currentTimeMillis()
+        val current = _timers.value[activityId] ?: return
+
+        val elapsed = if (current.startTime != null) {
+            now - current.startTime
+        } else 0L
+
+        val updated = current.copy(
+            accumulatedTime = current.accumulatedTime + elapsed,
+            startTime = null,
+            isRunning = false
+        )
+
+        _timers.value = _timers.value + (activityId to updated)
+
+        viewModelScope.launch {
+            timerRepository.saveTimer(userId, updated)
+        }
+    }
+
+    fun getTimeLeft(activity: Activity, now: Long): Long {
+        val timer = _timers.value[activity.id]
+
+        val totalMillis = activity.duration * 60 * 1000L
+        //val now = System.currentTimeMillis()
+
+        val elapsed = if (timer?.isRunning == true && timer.startTime != null) {
+            timer.accumulatedTime + (now - timer.startTime)
+        } else {
+            timer?.accumulatedTime ?: 0L
+        }
+
+        return (totalMillis - elapsed).coerceAtLeast(0)
+    }
+
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getRoutineStartTime(hour: String): Long {
+        val today = java.time.LocalDate.now()
+        val time = java.time.LocalTime.parse(hour)
+
+        return java.time.LocalDateTime.of(today, time)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getActivityStartTime(
+        routine: Routine,
+        currentIndex: Int
+    ): Long {
+
+        val routineStart = getRoutineStartTime(routine.hour)
+
+        val previousDurations = routine.activities
+            .take(currentIndex)
+            .sumOf { it.duration * 60 * 1000L }
+
+        return routineStart + previousDurations
+    }
+
+
 
 }

@@ -214,9 +214,15 @@ fun AppNaveHost(
                 ActivityProgressScreen(
                     routine = routine,
                     currentIndex = activityIndex,
+                    userId = userId,
+                    viewModel = detailViewModel,
                     onNext = { nextIndex ->
-                        navController.navigate(NavRoute.ActivityProgress.pass(routineId, nextIndex)) {
-                            popUpTo(NavRoute.ActivityProgress.pass(routineId, activityIndex)) {
+                        navController.navigate(
+                            NavRoute.ActivityProgress.pass(routineId, nextIndex)
+                        ) {
+                            popUpTo(
+                                NavRoute.ActivityProgress.pass(routineId, activityIndex)
+                            ) {
                                 inclusive = true
                             }
                         }
@@ -224,7 +230,7 @@ fun AppNaveHost(
                     onFinish = {
                         navController.popBackStack()
                     },
-                    onBack = {
+                    onNavigateBack = {
                         navController.popBackStack()
                     }
                 )

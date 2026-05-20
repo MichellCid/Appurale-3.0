@@ -19,7 +19,7 @@ class ActivityForegroundService : Service() {
         val notification = NotificationCompat.Builder(this, "activity_channel")
             .setContentTitle("Appurale: $name en curso")
             .setContentText("Tu actividad ha comenzado")
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Usa tus iconos de res
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setUsesChronometer(true)
             .setOngoing(true)
             .build()
