@@ -261,22 +261,21 @@ fun AddRoutineScreen(
                             }
                         )
 
-                        // Hora - Con selector de tiempo
                         OutlinedTextField(
-                            value = uiState.hour,
+                            value = uiState.date?.let { date ->
+                                val cal = Calendar.getInstance().apply { time = date }
+                                String.format("%02d/%02d/%d", cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.YEAR))
+                            } ?: "",
                             onValueChange = {},
-                            label = { Text("Hora") },
-                            placeholder = { Text("HH:MM") },
+                            label = { Text("Fecha") },
+                            placeholder = { Text("DD/MM/AAAA") },
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { showTimePicker = true },
+                                .clickable { showDatePicker = true },
                             readOnly = true,
                             trailingIcon = {
-                                IconButton(
-                                    onClick = { showTimePicker = true },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Text("🕐", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
+                                IconButton(onClick = { showDatePicker = true }) {
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Seleccionar fecha")
                                 }
                             }
                         )
@@ -433,10 +432,11 @@ fun AddRoutineScreen(
         )
     }
 
-    // DatePicker Dialog
+    // DatePicker Dialog - CORREGIDO (sin problema de un día menos)
     if (showDatePicker) {
+        val calendar = Calendar.getInstance()
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = System.currentTimeMillis()
+            initialSelectedDateMillis = uiState.date?.time ?: System.currentTimeMillis()
         )
 
         DatePickerDialog(
@@ -445,8 +445,16 @@ fun AddRoutineScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            val date = Date(millis)
-                            viewModel.updateDate(date)
+                            // Crear Calendar a partir del timestamp
+                            val selectedCalendar = Calendar.getInstance().apply {
+                                timeInMillis = millis
+                                // Ajustar a medianoche en la zona horaria local
+                                set(Calendar.HOUR_OF_DAY, 0)
+                                set(Calendar.MINUTE, 0)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }
+                            viewModel.updateDate(selectedCalendar.time)
                         }
                         showDatePicker = false
                     }

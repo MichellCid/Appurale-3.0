@@ -89,54 +89,26 @@ class ExecuteRoutineViewModel @Inject constructor(
         }
     }
 
-    fun startAlarmSound(
-        context: Context,
-        soundUri: String?
-    ) {
-
+    // SONIDO DE ALARMA EN BUCLE al completar la rutina
+    fun startAlarmSound(context: Context, soundUri: String?) {
         try {
+            stopAlarmSound() // Detener cualquier sonido previo
 
-            stopAlarmSound()
+            val uri = if (!soundUri.isNullOrEmpty()) {
+                Uri.parse(soundUri)
+            } else {
+                android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
+            }
 
-            val uri =
-                if (!soundUri.isNullOrEmpty()) {
-                    Uri.parse(soundUri)
-                } else {
-                    android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
+            alarmMediaPlayer = MediaPlayer.create(context, uri).apply {
+                isLooping = true  // ← En bucle infinito
+                start()
+                setOnErrorListener { _, _, _ ->
+                    stopAlarmSound()
+                    false
                 }
-
-            alarmMediaPlayer =
-                MediaPlayer().apply {
-
-                    setDataSource(
-                        context,
-                        uri
-                    )
-
-                    isLooping = true
-
-                    setOnPreparedListener {
-                        start()
-                    }
-
-                    setOnCompletionListener {
-                        start()
-                    }
-
-                    setOnErrorListener { _, what, extra ->
-
-                        println(
-                            "ERROR ALARMA: $what - $extra"
-                        )
-
-                        false
-                    }
-
-                    prepareAsync()
-                }
-
-        } catch(e: Exception){
-
+            }
+        } catch (e: Exception) {
             e.printStackTrace()
         }
     }
