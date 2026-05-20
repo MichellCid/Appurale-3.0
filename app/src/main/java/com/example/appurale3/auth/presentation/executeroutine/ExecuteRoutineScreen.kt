@@ -116,7 +116,7 @@ fun ExecuteRoutineScreen(
             viewModel.releaseAllPlayers()
         }
     }
-    
+
 // Sensor únicamente cuando termina la rutina
     DisposableEffect(uiState.isCompleted) {
 
