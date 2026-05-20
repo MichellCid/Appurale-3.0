@@ -1,8 +1,12 @@
 package com.example.appurale3.presentation.executeroutine
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.Column
 import android.hardware.Sensor
 import android.hardware.SensorManager
@@ -44,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -64,11 +69,10 @@ fun ExecuteRoutineScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // SENSOR
     val sensorManager = remember {
         context.getSystemService(
-            SensorManager::class.java
-        )
+            Context.SENSOR_SERVICE
+        ) as SensorManager
     }
 
     val accelerometer = remember {
@@ -77,12 +81,21 @@ fun ExecuteRoutineScreen(
         )
     }
 
+    var sensorActivated by remember {
+        mutableStateOf(false)
+    }
+
     val shakeDetector = remember {
         ShakeDetector {
 
-            // Hace lo mismo que FINALIZAR RUTINA
-            viewModel.finishRoutineAndStopAlarm()
-            onNavigateBack()
+            if (!sensorActivated) {
+
+                sensorActivated = true
+
+                viewModel.finishRoutineAndStopAlarm()
+
+                onNavigateBack()
+            }
         }
     }
 
@@ -117,10 +130,15 @@ fun ExecuteRoutineScreen(
         }
     }
 
-// Sensor únicamente cuando termina la rutina
-    DisposableEffect(uiState.isCompleted) {
+    DisposableEffect(
+        uiState.isCompleted,
+        accelerometer
+    ) {
 
-        if (uiState.isCompleted) {
+        if (
+            uiState.isCompleted &&
+            accelerometer != null
+        ) {
 
             sensorManager?.registerListener(
                 shakeDetector,
