@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -160,13 +161,14 @@ fun SoundPickerScreen(
                         SoundItemCard(
                             sound = sound,
                             isSelected = selectedSoundId == sound.id,
+                            isPlaying = uiState.isPlaying == sound.id,  // ← Añadir esto
                             onSelect = {
                                 selectedSoundId = sound.id
                                 onSoundSelected(sound.uri)
                                 onNavigateBack()
                             },
                             onPreview = {
-                                viewModel.previewSound(sound.uri)
+                                viewModel.previewSound(sound.id, sound.uri)  // ← Pasar ID y URI
                             }
                         )
                     }
@@ -185,6 +187,7 @@ fun SoundPickerScreen(
 fun SoundItemCard(
     sound: SoundItem,
     isSelected: Boolean,
+    isPlaying: Boolean,
     onSelect: () -> Unit,
     onPreview: () -> Unit
 ) {
@@ -213,9 +216,9 @@ fun SoundItemCard(
                     text = sound.name,
                     style = MaterialTheme.typography.bodyLarge
                 )
-                if (sound.id.startsWith("custom_")) {
+                if (sound.id.startsWith("system_") || sound.id.startsWith("default_")) {
                     Text(
-                        text = "📁 Personalizado",
+                        text = "🔊 Sonido del sistema",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -224,7 +227,15 @@ fun SoundItemCard(
 
             Row {
                 IconButton(onClick = onPreview) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = "Vista previa")
+                    Icon(
+                        if (isPlaying) {
+                            Icons.Default.Stop  // Si se está reproduciendo, muestra Stop
+                        } else {
+                            Icons.Default.PlayArrow
+                        },
+                        contentDescription = if (isPlaying) "Detener" else "Vista previa",
+                        tint = if (isPlaying) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    )
                 }
                 if (isSelected) {
                     Icon(Icons.Default.Check, contentDescription = "Seleccionado")
