@@ -431,8 +431,7 @@ fun AddRoutineScreen(
             onNavigateBack = { showSoundPicker = false }
         )
     }
-
-    // DatePicker Dialog - CORREGIDO (sin problema de un día menos)
+    
     if (showDatePicker) {
         val calendar = Calendar.getInstance()
         val datePickerState = rememberDatePickerState(
