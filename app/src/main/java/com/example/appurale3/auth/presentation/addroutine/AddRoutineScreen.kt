@@ -27,8 +27,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,8 +37,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,18 +50,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.appurale3.auth.presentation.sound.SoundPickerScreen
 import com.example.appurale3.data.models.Activity
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
-import androidx.compose.ui.text.style.TextDecoration
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,13 +69,17 @@ fun AddRoutineScreen(
 
     var showCategoryMenu by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
     var isCustomCategory by remember { mutableStateOf(false) }
     var customCategoryText by remember { mutableStateOf("") }
-    var showSoundPicker by remember { mutableStateOf(false) }  // ← MOVIDO AQUÍ (antes del Scaffold)
-    var showTimePicker by remember { mutableStateOf(false) }
+    var showSoundPicker by remember { mutableStateOf(false) }
+
+    // Estados para el selector manual de fecha
+    var selectedYear by remember { mutableStateOf(2026) }
+    var selectedMonth by remember { mutableStateOf(5) }  // 0-11, mayo = 4
+    var selectedDay by remember { mutableStateOf(25) }
 
     val categories = listOf("Trabajo", "Estudio", "Ejercicio", "Salud", "Personal", "Otro")
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     val MAX_CHARS_DESCRIPTION = 500
 
     LaunchedEffect(uiState.errorMessage, uiState.successMessage) {
@@ -198,11 +195,8 @@ fun AddRoutineScreen(
                                     showCategoryMenu = true
                                 },
                             trailingIcon = {
-                                IconButton(
-                                    onClick = { showCategoryMenu = true },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Seleccionar", modifier = Modifier.size(20.dp))
+                                IconButton(onClick = { showCategoryMenu = true }) {
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Seleccionar")
                                 }
                             }
                         )
@@ -233,45 +227,31 @@ fun AddRoutineScreen(
                         }
                     }
 
-                    // Fecha y hora
+                    // ==================== FECHA Y HORA ====================
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // FECHA - con selector manual (sin problemas de zona horaria)
                         OutlinedTextField(
-                            value = uiState.date?.let { dateFormat.format(it) } ?: "",
+                            value = uiState.date,
                             onValueChange = {},
                             label = { Text("Fecha") },
                             placeholder = { Text("DD/MM/AAAA") },
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { showDatePicker = true },
-                            readOnly = true,
-                            trailingIcon = {
-                                IconButton(
-                                    onClick = { showDatePicker = true },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.ArrowDropDown,
-                                        contentDescription = "Seleccionar fecha",
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        )
-
-                        OutlinedTextField(
-                            value = uiState.date?.let { date ->
-                                val cal = Calendar.getInstance().apply { time = date }
-                                String.format("%02d/%02d/%d", cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.YEAR))
-                            } ?: "",
-                            onValueChange = {},
-                            label = { Text("Fecha") },
-                            placeholder = { Text("DD/MM/AAAA") },
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { showDatePicker = true },
+                                .clickable {
+                                    // Cargar fecha actual al abrir selector
+                                    if (uiState.date.isNotEmpty()) {
+                                        try {
+                                            val parts = uiState.date.split("/")
+                                            selectedDay = parts[0].toInt()
+                                            selectedMonth = parts[1].toInt() - 1
+                                            selectedYear = parts[2].toInt()
+                                        } catch (e: Exception) { }
+                                    }
+                                    showDatePicker = true
+                                },
                             readOnly = true,
                             trailingIcon = {
                                 IconButton(onClick = { showDatePicker = true }) {
@@ -279,7 +259,25 @@ fun AddRoutineScreen(
                                 }
                             }
                         )
+
+                        // HORA
+                        OutlinedTextField(
+                            value = uiState.hour,
+                            onValueChange = {},
+                            label = { Text("Hora") },
+                            placeholder = { Text("HH:MM") },
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showTimePicker = true },
+                            readOnly = true,
+                            trailingIcon = {
+                                IconButton(onClick = { showTimePicker = true }) {
+                                    Text("🕐", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
+                                }
+                            }
+                        )
                     }
+                    // =====================================================
 
                     // Duración
                     OutlinedTextField(
@@ -293,9 +291,7 @@ fun AddRoutineScreen(
 
                     // Sonido
                     OutlinedTextField(
-                        value = if (uiState.soundUri.isNotEmpty()) {
-                            "✅ Sonido seleccionado"
-                        } else "",
+                        value = if (uiState.soundUri.isNotEmpty()) "✅ Sonido seleccionado" else "",
                         onValueChange = {},
                         label = { Text("Sonido") },
                         placeholder = { Text("Seleccionar sonido") },
@@ -304,76 +300,11 @@ fun AddRoutineScreen(
                             .clickable { showSoundPicker = true },
                         readOnly = true,
                         trailingIcon = {
-                            IconButton(
-                                onClick = { showSoundPicker = true },
-                                modifier = Modifier.size(32.dp)
-                            ) {
+                            IconButton(onClick = { showSoundPicker = true }) {
                                 Text("🔊", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
                             }
                         }
                     )
-                }
-            }
-
-            // Sección de actividades
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "Actividades",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    if (uiState.activities.isNotEmpty()) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            uiState.activities.forEach { activity ->
-                                ActivityRow(
-                                    activity = activity,
-                                    onRemove = { viewModel.removeActivity(activity.id) },
-                                    onToggleActive = { viewModel.toggleActivityActive(activity.id) }
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    Button(
-                        onClick = { /* TODO: Navegar a pantalla de agregar actividad */ },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Add,
-                            contentDescription = "Agregar",
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Agregar actividades")
-                    }
-
-                    if (uiState.activities.isEmpty()) {
-                        Text(
-                            text = "💡 Puedes guardar la rutina sin actividades y agregarlas después",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
                 }
             }
 
@@ -386,15 +317,10 @@ fun AddRoutineScreen(
                     onClick = { viewModel.saveRoutine(userId, onNavigateBack) },
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.isLoading,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     if (uiState.isLoading) {
-                        androidx.compose.material3.CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
+                        androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
                     } else {
                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -420,7 +346,7 @@ fun AddRoutineScreen(
         }
     }
 
-    // SoundPicker - MOVIDO FUERA DEL SCAFFOLD
+    // SoundPicker
     if (showSoundPicker) {
         SoundPickerScreen(
             onSoundSelected = { soundUri ->
@@ -431,30 +357,67 @@ fun AddRoutineScreen(
             onNavigateBack = { showSoundPicker = false }
         )
     }
-    
-    if (showDatePicker) {
-        val calendar = Calendar.getInstance()
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = uiState.date?.time ?: System.currentTimeMillis()
-        )
 
-        DatePickerDialog(
+    // ==================== SELECTOR MANUAL DE FECHA (SIN PROBLEMAS DE ZONA HORARIA) ====================
+    if (showDatePicker) {
+        AlertDialog(
             onDismissRequest = { showDatePicker = false },
+            title = { Text("Seleccionar fecha") },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        // Selector de día
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Día", style = MaterialTheme.typography.labelSmall)
+                            IconButton(onClick = { if (selectedDay < 31) selectedDay++ }) {
+                                Text("▲", fontSize = MaterialTheme.typography.headlineSmall.fontSize)
+                            }
+                            Text(selectedDay.toString(), style = MaterialTheme.typography.headlineMedium)
+                            IconButton(onClick = { if (selectedDay > 1) selectedDay-- }) {
+                                Text("▼", fontSize = MaterialTheme.typography.headlineSmall.fontSize)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(32.dp))
+
+                        // Selector de mes
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Mes", style = MaterialTheme.typography.labelSmall)
+                            IconButton(onClick = { if (selectedMonth < 11) selectedMonth++ }) {
+                                Text("▲", fontSize = MaterialTheme.typography.headlineSmall.fontSize)
+                            }
+                            Text((selectedMonth + 1).toString(), style = MaterialTheme.typography.headlineMedium)
+                            IconButton(onClick = { if (selectedMonth > 0) selectedMonth-- }) {
+                                Text("▼", fontSize = MaterialTheme.typography.headlineSmall.fontSize)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(32.dp))
+
+                        // Selector de año
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Año", style = MaterialTheme.typography.labelSmall)
+                            IconButton(onClick = { selectedYear++ }) {
+                                Text("▲", fontSize = MaterialTheme.typography.headlineSmall.fontSize)
+                            }
+                            Text(selectedYear.toString(), style = MaterialTheme.typography.headlineMedium)
+                            IconButton(onClick = { selectedYear-- }) {
+                                Text("▼", fontSize = MaterialTheme.typography.headlineSmall.fontSize)
+                            }
+                        }
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            // Crear Calendar a partir del timestamp
-                            val selectedCalendar = Calendar.getInstance().apply {
-                                timeInMillis = millis
-                                // Ajustar a medianoche en la zona horaria local
-                                set(Calendar.HOUR_OF_DAY, 0)
-                                set(Calendar.MINUTE, 0)
-                                set(Calendar.SECOND, 0)
-                                set(Calendar.MILLISECOND, 0)
-                            }
-                            viewModel.updateDate(selectedCalendar.time)
-                        }
+                        val dateString = String.format("%02d/%02d/%d", selectedDay, selectedMonth + 1, selectedYear)
+                        viewModel.updateDate(dateString)
                         showDatePicker = false
                     }
                 ) {
@@ -466,38 +429,35 @@ fun AddRoutineScreen(
                     Text("Cancelar")
                 }
             }
-        ) {
-            DatePicker(
-                state = datePickerState,
-                showModeToggle = false
-            )
-        }
+        )
     }
 
-    // TimePicker Dialog
+    // ==================== SELECTOR DE HORA ====================
     if (showTimePicker) {
+        val currentHour = if (uiState.hour.isNotEmpty() && uiState.hour.contains(":")) {
+            uiState.hour.split(":")[0].toIntOrNull() ?: 12
+        } else 12
+
+        val currentMinute = if (uiState.hour.isNotEmpty() && uiState.hour.contains(":")) {
+            uiState.hour.split(":")[1].toIntOrNull() ?: 0
+        } else 0
+
         val timePickerState = rememberTimePickerState(
-            initialHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
-            initialMinute = Calendar.getInstance().get(Calendar.MINUTE),
+            initialHour = currentHour,
+            initialMinute = currentMinute,
             is24Hour = true
         )
 
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
             title = { Text("Seleccionar hora") },
-            text = {
-                TimePicker(
-                    state = timePickerState
-                )
-            },
+            text = { TimePicker(state = timePickerState) },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val hour = timePickerState.hour
-                        val minute = timePickerState.minute
-                        val hourFormatted = hour.toString().padStart(2, '0')
-                        val minuteFormatted = minute.toString().padStart(2, '0')
-                        viewModel.updateHour("$hourFormatted:$minuteFormatted")
+                        val hour = timePickerState.hour.toString().padStart(2, '0')
+                        val minute = timePickerState.minute.toString().padStart(2, '0')
+                        viewModel.updateHour("$hour:$minute")
                         showTimePicker = false
                     }
                 ) {
@@ -530,83 +490,42 @@ fun ActivityRow(
         )
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = activity.name,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = if (activity.active)
-                        MaterialTheme.colorScheme.onSurface
-                    else
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    textDecoration = if (!activity.active)
-                        TextDecoration.LineThrough
-                    else null
+                    color = if (activity.active) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    textDecoration = if (!activity.active) TextDecoration.LineThrough else null
                 )
                 if (activity.description.isNotEmpty()) {
-                    Text(
-                        text = activity.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(activity.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (activity.duration > 0) {
-                    Text(
-                        text = "⏱️ ${activity.duration} min",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Text("⏱️ ${activity.duration} min", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
             }
 
-            IconButton(onClick = onRemove) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = "Eliminar",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
-                )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = onToggleActive,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (activity.active) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primary,
+                        contentColor = if (activity.active) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    Button(
-                        onClick = onToggleActive,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (activity.active)
-                                MaterialTheme.colorScheme.errorContainer
-                            else
-                                MaterialTheme.colorScheme.primary,
-                            contentColor = if (activity.active)
-                                MaterialTheme.colorScheme.onErrorContainer
-                            else
-                                MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = RoundedCornerShape(20.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = if (activity.active) "Desactivar" else "Activar",
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
+                    Text(text = if (activity.active) "Desactivar" else "Activar", style = MaterialTheme.typography.labelMedium)
+                }
 
-                    IconButton(onClick = onRemove) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Eliminar",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                IconButton(onClick = onRemove) {
+                    Icon(Icons.Default.Close, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                 }
             }
         }

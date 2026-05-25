@@ -10,20 +10,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
-
 import com.example.appurale3.data.models.Activity
 
 data class AddRoutineUiState(
     val name: String = "",
     val description: String = "",
     val category: String = "",
-    val date: Date? = null,
+    val date: String = "",
     val hour: String = "",
     val duration: String = "",
     val soundUri: String = "",
-    val activities: List<Activity> = emptyList(),  // ← Cambiado
+    val activities: List<Activity> = emptyList(),
     val currentActivityName: String = "",
     val currentActivityDescription: String = "",
     val currentActivityDuration: String = "",
@@ -52,7 +53,7 @@ class AddRoutineViewModel @Inject constructor(
         _uiState.update { it.copy(category = category) }
     }
 
-    fun updateDate(date: Date?) {
+    fun updateDate(date: String) {
         _uiState.update { it.copy(date = date) }
     }
 
@@ -87,7 +88,8 @@ class AddRoutineViewModel @Inject constructor(
                 id = System.currentTimeMillis().toString(),
                 name = currentState.currentActivityName,
                 description = currentState.currentActivityDescription,
-                duration = currentState.currentActivityDuration.toIntOrNull() ?: 0
+                duration = currentState.currentActivityDuration.toIntOrNull() ?: 0,
+                active = true
             )
             _uiState.update {
                 it.copy(
@@ -106,6 +108,28 @@ class AddRoutineViewModel @Inject constructor(
         }
     }
 
+    fun toggleActivityActive(activityId: String) {
+        _uiState.update { state ->
+            val updatedActivities = state.activities.map { activity ->
+                if (activity.id == activityId) {
+                    activity.copy(active = !activity.active)
+                } else {
+                    activity
+                }
+            }
+            state.copy(activities = updatedActivities)
+        }
+    }
+
+    private fun parseDate(dateString: String): Date? {
+        return try {
+            val format = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            format.parse(dateString)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun saveRoutine(userId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
@@ -113,7 +137,6 @@ class AddRoutineViewModel @Inject constructor(
             val currentState = _uiState.value
             val MAX_CHARS = 500
 
-            // Validar nombre
             if (currentState.name.isBlank()) {
                 _uiState.update {
                     it.copy(isLoading = false, errorMessage = "El nombre de la rutina es obligatorio")
@@ -121,7 +144,6 @@ class AddRoutineViewModel @Inject constructor(
                 return@launch
             }
 
-            // CU-11-CP-05: Validar límite de caracteres en descripción
             if (currentState.description.length > MAX_CHARS) {
                 _uiState.update {
                     it.copy(isLoading = false, errorMessage = "La descripción excede el límite de $MAX_CHARS caracteres")
@@ -129,14 +151,14 @@ class AddRoutineViewModel @Inject constructor(
                 return@launch
             }
 
-            // CU-11-CP-02: Descripción opcional (no hay validación de vacío)
+            val dateObj = parseDate(currentState.date)
 
             val routine = Routine(
                 name = currentState.name,
                 nameLowercase = currentState.name.lowercase(),
-                description = currentState.description,  // Puede estar vacío
+                description = currentState.description,
                 category = currentState.category,
-                date = currentState.date,
+                date = dateObj,
                 hour = currentState.hour,
                 duration = currentState.duration.toIntOrNull() ?: 0,
                 soundUri = currentState.soundUri,
@@ -154,7 +176,6 @@ class AddRoutineViewModel @Inject constructor(
                     onSuccess()
                 },
                 onFailure = { exception ->
-                    // CU-11-CP-07: Error al guardar
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -169,19 +190,4 @@ class AddRoutineViewModel @Inject constructor(
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
-
-    fun toggleActivityActive(activityId: String) {
-        _uiState.update { state ->
-            state.copy(
-                activities = state.activities.map { act ->
-                    if (act.id == activityId) {
-                        act.copy(active = !act.active)
-                    } else act
-                }
-            )
-        }
-    }
-
-
-
 }

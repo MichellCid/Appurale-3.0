@@ -126,7 +126,13 @@ fun DetailRoutineScreen(
                             value = editedRoutine?.name ?: "",
                             onValueChange = { editedRoutine = editedRoutine?.copy(name = it) },
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            isError = editedRoutine?.name.isNullOrBlank(),
+                            supportingText = {
+                                if (editedRoutine?.name.isNullOrBlank()) {
+                                    Text("El nombre es obligatorio", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
                         )
                     } else {
                         Text(
@@ -158,17 +164,50 @@ fun DetailRoutineScreen(
                             Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                         }
                     } else {
+                        // ==================== BOTÓN GUARDAR CON VALIDACIONES ====================
                         TextButton(
                             onClick = {
-                                editedRoutine?.let {
-                                    viewModel.updateRoutine(it) {
-                                        isEditing = false
+                                // VALIDACIONES: Ningún campo puede estar vacío
+                                val nameError = editedRoutine?.name.isNullOrBlank()
+                                val descriptionError = editedRoutine?.description.isNullOrBlank()
+                                val categoryError = editedRoutine?.category.isNullOrBlank()
+                                val dateError = editedRoutine?.date == null
+                                val hourError = editedRoutine?.hour.isNullOrBlank()
+                                val durationError = (editedRoutine?.duration ?: 0) <= 0
+
+                                when {
+                                    nameError -> {
+                                        Toast.makeText(context, "El nombre de la rutina es obligatorio", Toast.LENGTH_SHORT).show()
+                                    }
+                                    descriptionError -> {
+                                        Toast.makeText(context, "La descripción es obligatoria", Toast.LENGTH_SHORT).show()
+                                    }
+                                    categoryError -> {
+                                        Toast.makeText(context, "La categoría es obligatoria", Toast.LENGTH_SHORT).show()
+                                    }
+                                    dateError -> {
+                                        Toast.makeText(context, "La fecha es obligatoria", Toast.LENGTH_SHORT).show()
+                                    }
+                                    hourError -> {
+                                        Toast.makeText(context, "La hora es obligatoria", Toast.LENGTH_SHORT).show()
+                                    }
+                                    durationError -> {
+                                        Toast.makeText(context, "La duración debe ser mayor a 0 minutos", Toast.LENGTH_SHORT).show()
+                                    }
+                                    else -> {
+                                        // Todos los campos están llenos, guardar
+                                        editedRoutine?.let {
+                                            viewModel.updateRoutine(it) {
+                                                isEditing = false
+                                            }
+                                        }
                                     }
                                 }
                             }
                         ) {
                             Text("Guardar")
                         }
+                        // =========================================================================
                         TextButton(onClick = { isEditing = false }) {
                             Text("Cancelar")
                         }
@@ -277,25 +316,38 @@ fun DetailRoutineScreen(
                                     )
                                 }
                             } else {
-                                // Modo edición - NOMBRE
+                                // ==================== MODO EDICIÓN ====================
+                                // NOMBRE
                                 OutlinedTextField(
                                     value = editedRoutine?.name ?: "",
                                     onValueChange = { editedRoutine = editedRoutine?.copy(name = it) },
-                                    label = { Text("Nombre de la rutina") },
+                                    label = { Text("Nombre de la rutina *") },
                                     modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
+                                    singleLine = true,
+                                    isError = editedRoutine?.name.isNullOrBlank(),
+                                    supportingText = {
+                                        if (editedRoutine?.name.isNullOrBlank()) {
+                                            Text("Este campo es obligatorio", color = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
                                 )
 
-                                // Modo edición - DESCRIPCIÓN
+                                // DESCRIPCIÓN
                                 OutlinedTextField(
                                     value = editedRoutine?.description ?: "",
                                     onValueChange = { editedRoutine = editedRoutine?.copy(description = it) },
-                                    label = { Text("Descripción") },
+                                    label = { Text("Descripción *") },
                                     modifier = Modifier.fillMaxWidth(),
-                                    minLines = 2
+                                    minLines = 2,
+                                    isError = editedRoutine?.description.isNullOrBlank(),
+                                    supportingText = {
+                                        if (editedRoutine?.description.isNullOrBlank()) {
+                                            Text("Este campo es obligatorio", color = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
                                 )
 
-                                // Modo edición - CATEGORÍA (con selector)
+                                // CATEGORÍA
                                 Column {
                                     OutlinedTextField(
                                         value = if (isCustomCategoryEdit) customCategoryTextEdit else (editedRoutine?.category ?: ""),
@@ -307,7 +359,7 @@ fun DetailRoutineScreen(
                                                 editedRoutine = editedRoutine?.copy(category = newValue)
                                             }
                                         },
-                                        label = { Text("Categoría") },
+                                        label = { Text("Categoría *") },
                                         placeholder = { Text("Seleccionar o escribir categoría") },
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -315,6 +367,12 @@ fun DetailRoutineScreen(
                                                 isCustomCategoryEdit = false
                                                 showCategoryMenuEdit = true
                                             },
+                                        isError = editedRoutine?.category.isNullOrBlank(),
+                                        supportingText = {
+                                            if (editedRoutine?.category.isNullOrBlank()) {
+                                                Text("Este campo es obligatorio", color = MaterialTheme.colorScheme.error)
+                                            }
+                                        },
                                         trailingIcon = {
                                             IconButton(onClick = { showCategoryMenuEdit = true }) {
                                                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Seleccionar")
@@ -347,16 +405,22 @@ fun DetailRoutineScreen(
                                     }
                                 }
 
-                                // Modo edición - FECHA
+                                // FECHA
                                 OutlinedTextField(
                                     value = editedRoutine?.date?.let { dateFormat.format(it) } ?: "",
                                     onValueChange = {},
-                                    label = { Text("Fecha") },
+                                    label = { Text("Fecha *") },
                                     placeholder = { Text("DD/MM/AAAA") },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { showDatePickerEdit = true },
                                     readOnly = true,
+                                    isError = editedRoutine?.date == null,
+                                    supportingText = {
+                                        if (editedRoutine?.date == null) {
+                                            Text("Este campo es obligatorio", color = MaterialTheme.colorScheme.error)
+                                        }
+                                    },
                                     trailingIcon = {
                                         IconButton(onClick = { showDatePickerEdit = true }) {
                                             Icon(Icons.Default.ArrowDropDown, contentDescription = "Seleccionar fecha")
@@ -364,16 +428,22 @@ fun DetailRoutineScreen(
                                     }
                                 )
 
-                                // Modo edición - HORA
+                                // HORA
                                 OutlinedTextField(
                                     value = editedRoutine?.hour ?: "",
                                     onValueChange = { editedRoutine = editedRoutine?.copy(hour = it) },
-                                    label = { Text("Hora") },
+                                    label = { Text("Hora *") },
                                     placeholder = { Text("HH:MM") },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { showTimePickerEdit = true },
                                     readOnly = true,
+                                    isError = editedRoutine?.hour.isNullOrBlank(),
+                                    supportingText = {
+                                        if (editedRoutine?.hour.isNullOrBlank()) {
+                                            Text("Este campo es obligatorio", color = MaterialTheme.colorScheme.error)
+                                        }
+                                    },
                                     trailingIcon = {
                                         IconButton(onClick = { showTimePickerEdit = true }) {
                                             Text("🕐")
@@ -381,12 +451,22 @@ fun DetailRoutineScreen(
                                     }
                                 )
 
+                                // DURACIÓN
                                 OutlinedTextField(
                                     value = editedRoutine?.duration?.toString() ?: "",
-                                    onValueChange = { editedRoutine = editedRoutine?.copy(duration = it.toIntOrNull() ?: 0) },
-                                    label = { Text("Duración (minutos)") },
+                                    onValueChange = {
+                                        val newValue = it.toIntOrNull() ?: 0
+                                        editedRoutine = editedRoutine?.copy(duration = newValue)
+                                    },
+                                    label = { Text("Duración (minutos) *") },
                                     modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
+                                    singleLine = true,
+                                    isError = (editedRoutine?.duration ?: 0) <= 0,
+                                    supportingText = {
+                                        if ((editedRoutine?.duration ?: 0) <= 0) {
+                                            Text("Debe ser mayor a 0", color = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -472,7 +552,6 @@ fun DetailRoutineScreen(
                         ActivityDetailItem(
                             activity = activity,
                             onToggleCompletion = {
-                                // CU-09: Mostrar diálogo de confirmación antes de marcar
                                 pendingActivity = activity
                                 showCheckboxDialog = true
                             },
@@ -520,7 +599,7 @@ fun DetailRoutineScreen(
         }
     }
 
-// TimePicker Dialog para edición
+    // TimePicker Dialog para edición
     if (showTimePickerEdit) {
         val initialHour = editedRoutine?.hour?.split(":")?.getOrNull(0)?.toIntOrNull() ?: 12
         val initialMinute = editedRoutine?.hour?.split(":")?.getOrNull(1)?.toIntOrNull() ?: 0
@@ -613,7 +692,6 @@ fun DetailRoutineScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // FA-01: Usuario confirma con "Aceptar"
                         try {
                             pendingActivity?.let { activity ->
                                 viewModel.toggleActivityCompletion(activity.id)
@@ -633,7 +711,6 @@ fun DetailRoutineScreen(
             dismissButton = {
                 TextButton(
                     onClick = {
-                        // FA-01: Usuario cancela la acción
                         showCheckboxDialog = false
                         pendingActivity = null
                     }
@@ -674,7 +751,6 @@ fun ActivityDetailItem(
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Checkbox para marcar completada (CU-09)
                 Checkbox(
                     checked = activity.completed,
                     onCheckedChange = { onToggleCompletion() }
@@ -687,7 +763,6 @@ fun ActivityDetailItem(
                         fontWeight = FontWeight.Medium,
                         textDecoration = if (activity.completed) TextDecoration.LineThrough else null
                     )
-                    // CU-11: Mostrar la NOTA (descripción)
                     if (activity.description.isNotEmpty()) {
                         Text(
                             text = "📝 ${activity.description}",
@@ -705,13 +780,10 @@ fun ActivityDetailItem(
                 }
             }
 
-            // Botones de acción
             Row {
-                // Botón Editar (CU-02)
                 IconButton(onClick = onEdit) {
                     Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(20.dp))
                 }
-                // Botón Eliminar (CU-03) - con confirmación
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Eliminar", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
                 }
