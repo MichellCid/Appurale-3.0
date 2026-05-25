@@ -158,6 +158,7 @@ fun ExecuteRoutineScreen(
         viewModel.loadRoutine(
             routineId
         )
+        viewModel.checkIfFinishedByNotification(context, routineId)
     }
 
     Scaffold(

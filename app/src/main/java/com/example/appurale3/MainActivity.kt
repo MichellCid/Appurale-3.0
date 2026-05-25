@@ -43,6 +43,14 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+
+        // Verificar si se abrió desde notificación
+        intent?.let {
+            if (it.getBooleanExtra("openRoutine", false)) {
+                val routineId = it.getStringExtra("routineId")
+                // Navegar a la rutina
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
