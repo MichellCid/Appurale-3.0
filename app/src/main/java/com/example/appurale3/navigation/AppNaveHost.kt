@@ -1,5 +1,7 @@
 package com.example.appurale3.navigation
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,6 +28,8 @@ import com.example.appurale3.auth.presentation.register.RegisterScreen
 import com.example.appurale3.auth.presentation.settings.SettingsScreen
 import com.example.appurale3.presentation.addactivity.AddActivityScreen
 import com.example.appurale3.auth.presentation.calendar.CalendarScreen
+//import com.example.appurale3.auth.presentation.home.AppTheme
+import com.example.appurale3.ui.theme.AppTheme
 import com.example.appurale3.presentation.detailroutine.DetailRoutineScreen
 import com.example.appurale3.presentation.detailroutine.DetailRoutineViewModel
 import com.example.appurale3.data.models.Activity
@@ -35,12 +39,15 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNaveHost(
     navController: NavHostController = rememberNavController(),
     startOnHome: Boolean,
     userId: String = "",
-    deepLinkRutinaId: String? = null
+    deepLinkRutinaId: String? = null,
+    currentTheme: AppTheme,
+    onThemeChange: (AppTheme) -> Unit,
 ) {
     // Crear UNA SOLA instancia del ViewModel para compartir
     val detailViewModel: DetailRoutineViewModel = hiltViewModel()
@@ -75,6 +82,9 @@ fun AppNaveHost(
         // ========== PANTALLA PRINCIPAL ==========
         composable(NavRoute.Home.route) {
             HomeScreen(
+                currentTheme = currentTheme,
+                onThemeChange = onThemeChange,
+
                 onNavigateToAddRoutine = {
                     navController.navigate(NavRoute.AddRoutine.route)
                 },

@@ -36,6 +36,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -69,13 +70,20 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appurale3.data.models.RoutineUiModel
 import com.example.appurale3.data.models.TodayActivity
 import com.example.appurale3.presentation.home.HomeViewModel
+import com.example.appurale3.ui.theme.AppTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+/**enum class AppTheme {
+    LIGHT, DARK, OCEAN
+}**/
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    currentTheme: AppTheme,
+    onThemeChange: (AppTheme) -> Unit,
     onNavigateToAddRoutine: () -> Unit = {},
     onNavigateToExecuteRoutine: (String) -> Unit = {},
     onNavigateToDetailRoutine: (String) -> Unit = {},
@@ -164,12 +172,50 @@ fun HomeScreen(
                                 enabled = false  // No clickeable
                             )
 
-                            // Separador
+                            //inicio de la seccion para elegir un tema de colores
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                            Text(
+                                text = "Tema de la aplicación",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Tema Claro ${if (currentTheme == AppTheme.LIGHT) "✓" else ""}") },
+                                onClick = {
+                                    onThemeChange(AppTheme.LIGHT)
+                                    showProfileMenu = false
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Tema Oscuro ${if (currentTheme == AppTheme.DARK) "✓" else ""}") },
+                                onClick = {
+                                    onThemeChange(AppTheme.DARK)
+                                    showProfileMenu = false
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Tema Océano ${if (currentTheme == AppTheme.OCEAN) "✓" else ""}") },
+                                onClick = {
+                                    onThemeChange(AppTheme.OCEAN)
+                                    showProfileMenu = false
+                                }
+                            )
+
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+
+                            /** Separador
                             DropdownMenuItem(
                                 text = { Text("──────────────────") },
                                 onClick = { },
                                 enabled = false
-                            )
+                            )**/
 
                             // Cerrar sesión
                             DropdownMenuItem(

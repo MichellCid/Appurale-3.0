@@ -10,8 +10,9 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
+/**private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
     secondary = PurpleGrey80,
     tertiary = Pink80
@@ -48,6 +49,51 @@ fun Appurale3Theme(
 
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
+    )
+}**/
+
+
+enum class AppTheme {
+    LIGHT, DARK, OCEAN
+}
+
+private val DarkColorScheme = darkColorScheme(
+    primary = Purple80,
+    secondary = PurpleGrey80,
+    tertiary = Pink80
+)
+
+private val LightColorScheme = lightColorScheme(
+    primary = Purple40,
+    secondary = PurpleGrey40,
+    tertiary = Pink40
+)
+
+private val OceanColorScheme = darkColorScheme(
+    primary = Color(0xFF00658F),
+    secondary = Color(0xFF4FA8DA),
+    tertiary = Color(0xFF625b71),
+    background = Color(0xFF001F2A),
+    surface = Color(0xFF001F2A),
+    primaryContainer = Color(0xFF004C6D),
+    onPrimary = Color.White
+)
+
+@Composable
+fun Appurale3Theme(
+    theme: AppTheme = AppTheme.LIGHT,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when (theme) {
+        AppTheme.LIGHT -> LightColorScheme
+        AppTheme.DARK -> DarkColorScheme
+        AppTheme.OCEAN -> OceanColorScheme
     }
 
     MaterialTheme(
