@@ -4,13 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.Column
-import android.hardware.Sensor
-import android.hardware.SensorManager
-import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +43,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -57,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.appurale3.data.models.Activity
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,95 +66,26 @@ fun ExecuteRoutineScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val sensorManager = remember {
-        context.getSystemService(
-            Context.SENSOR_SERVICE
-        ) as SensorManager
-    }
-
-    val accelerometer = remember {
-        sensorManager?.getDefaultSensor(
-            Sensor.TYPE_ACCELEROMETER
-        )
-    }
-
-    var sensorActivated by remember {
-        mutableStateOf(false)
-    }
-
-    val shakeDetector = remember {
-        ShakeDetector {
-
-            if (!sensorActivated) {
-
-                sensorActivated = true
-
-                viewModel.finishRoutineAndStopAlarm()
-
-                onNavigateBack()
-            }
-        }
-    }
-
-    // Configurar callbacks
+    // Efectos para sonidos y notificaciones
     LaunchedEffect(Unit) {
-
         viewModel.setOnPlayCompletionSound { soundUri ->
-            viewModel.playCompletionSound(
-                context,
-                soundUri
-            )
+            viewModel.playCompletionSound(context, soundUri)
         }
-
         viewModel.setOnRoutineCompleted { soundUri, routineName ->
-
-            viewModel.startAlarmSound(
-                context,
-                soundUri
-            )
-
-            viewModel.showCompletionNotification(
-                context,
-                routineName
-            )
+            viewModel.startAlarmSound(context, soundUri)
+            viewModel.showCompletionNotification(context, routineName)
         }
     }
 
-    // Libera recursos SOLO al salir de pantalla
+    // Liberar recursos al salir
     DisposableEffect(Unit) {
         onDispose {
             viewModel.releaseAllPlayers()
         }
     }
 
-    DisposableEffect(
-        uiState.isCompleted,
-        accelerometer
-    ) {
-
-        if (
-            uiState.isCompleted &&
-            accelerometer != null
-        ) {
-
-            sensorManager?.registerListener(
-                shakeDetector,
-                accelerometer,
-                SensorManager.SENSOR_DELAY_NORMAL
-            )
-        }
-
-        onDispose {
-            sensorManager?.unregisterListener(
-                shakeDetector
-            )
-        }
-    }
-
     LaunchedEffect(routineId) {
-        viewModel.loadRoutine(
-            routineId
-        )
+        viewModel.loadRoutine(routineId)
         viewModel.checkIfFinishedByNotification(context, routineId)
     }
 
@@ -208,7 +136,7 @@ fun ExecuteRoutineScreen(
                 Text("No se encontró la rutina")
             }
         } else if (uiState.isCompleted) {
-            // Pantalla de rutina completada CON BOTÓN PARA DETENER ALARMA
+            // Pantalla de rutina completada
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -241,15 +169,8 @@ fun ExecuteRoutineScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Agita el teléfono de izquierda a derecha para detener la alarma",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Botón para DETENER ALARMA y finalizar
                         Button(
                             onClick = {
                                 viewModel.finishRoutineAndStopAlarm()
@@ -333,13 +254,11 @@ fun ExecuteRoutineScreen(
 
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                // Dentro de la Card de "Actividad actual", después del temporizador
-
-// Botones de control
+                                // ==================== BOTONES DE CONTROL ====================
+                                // Fila 1: Pausar/Reanudar y Reiniciar
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     // Botón Pausar/Reanudar
                                     Button(
@@ -350,6 +269,7 @@ fun ExecuteRoutineScreen(
                                                 viewModel.pauseActivity()
                                             }
                                         },
+                                        modifier = Modifier.weight(1f),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -358,56 +278,69 @@ fun ExecuteRoutineScreen(
                                     ) {
                                         Icon(
                                             if (isPaused || !isRunning) Icons.Default.PlayArrow else Icons.Default.Pause,
-                                            contentDescription = if (isPaused || !isRunning) "Reanudar" else "Pausar"
+                                            contentDescription = if (isPaused || !isRunning) "Reanudar" else "Pausar",
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text(if (isPaused || !isRunning) "Reanudar" else "Pausar")
                                     }
-
-                                    Spacer(modifier = Modifier.width(16.dp))
 
                                     // Botón Reiniciar
                                     Button(
                                         onClick = { viewModel.restartActivity() },
+                                        modifier = Modifier.weight(1f),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                         ),
                                         shape = RoundedCornerShape(50.dp)
                                     ) {
-                                        Icon(Icons.Default.Refresh, contentDescription = "Reiniciar")
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Icon(Icons.Default.Refresh, contentDescription = "Reiniciar", modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text("Reiniciar")
                                     }
+                                }
 
-                                    Spacer(modifier = Modifier.width(16.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                                    // Botón Siguiente / Terminar
-                                    Button(
-                                        onClick = {
-                                            if (currentIndex + 1 >= routine.activities.size) {
-                                                viewModel.completeRoutine()
-                                            } else {
-                                                viewModel.nextActivity()
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary
-                                        ),
-                                        shape = RoundedCornerShape(50.dp)
-                                    ) {
-                                        Icon(Icons.Default.SkipNext, contentDescription = if (currentIndex + 1 >= routine.activities.size) "Terminar" else "Siguiente")
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(if (currentIndex + 1 >= routine.activities.size) "Terminar" else "Siguiente")
-                                    }
+                                // ==================== BOTÓN SIGUIENTE ACTIVIDAD ====================
+                                Button(
+                                    onClick = {
+                                        if (currentIndex + 1 >= routine.activities.size) {
+                                            viewModel.completeRoutine()
+                                        } else {
+                                            viewModel.nextActivity()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    ),
+                                    shape = RoundedCornerShape(50.dp)
+                                ) {
+                                    Icon(
+                                        if (currentIndex + 1 >= routine.activities.size) Icons.Default.Check else Icons.Default.SkipNext,
+                                        contentDescription = if (currentIndex + 1 >= routine.activities.size) "Terminar" else "Siguiente",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        if (currentIndex + 1 >= routine.activities.size) "FINALIZAR RUTINA" else "SIGUIENTE ACTIVIDAD",
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
                     }
                 }
 
-                item { Text("Lista de actividades", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                // Lista de actividades
+                item {
+                    Text("Lista de actividades", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
 
                 itemsIndexed(routine.activities) { index, activity ->
                     ExecuteActivityItem(
@@ -432,7 +365,9 @@ fun ExecuteActivityItem(
     onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(enabled = isCompleted) { onClick() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = isCompleted) { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = when {
@@ -443,14 +378,16 @@ fun ExecuteActivityItem(
         )
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(modifier = Modifier.size(32.dp).padding(4.dp), contentAlignment = Alignment.Center) {
                 when {
                     isCompleted -> Icon(Icons.Default.CheckCircle, contentDescription = "Completada", tint = MaterialTheme.colorScheme.primary)
                     isCurrent -> Icon(Icons.Default.PlayArrow, contentDescription = "En curso", tint = MaterialTheme.colorScheme.primary)
-                    else -> Text((activity.duration / 60).toString(), style = MaterialTheme.typography.bodySmall)
+                    else -> Text((activity.duration).toString(), style = MaterialTheme.typography.bodySmall)
                 }
             }
             Spacer(modifier = Modifier.width(12.dp))

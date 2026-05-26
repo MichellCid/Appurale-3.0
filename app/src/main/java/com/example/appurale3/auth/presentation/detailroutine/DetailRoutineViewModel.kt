@@ -266,6 +266,41 @@ class DetailRoutineViewModel @Inject constructor(
         return routineStart + previousDurations
     }
 
+    fun completeActivity(activityId: String) {
+        val currentRoutine = _uiState.value.routine ?: return
 
+        val updatedActivities = currentRoutine.activities.map { activity ->
+            if (activity.id == activityId) {
+                activity.copy(completed = true)
+            } else {
+                activity
+            }
+        }
+
+        val updatedRoutine = currentRoutine.copy(activities = updatedActivities)
+
+        // Actualizar UI inmediatamente
+        _uiState.update { it.copy(routine = updatedRoutine) }
+
+        // Guardar en Firestore
+        viewModelScope.launch {
+            routineRepository.updateRoutine(updatedRoutine)
+        }
+    }
+
+    fun restartTimer(activityId: String, userId: String) {
+        val updated = ActivityTimer(
+            activityId = activityId,
+            startTime = System.currentTimeMillis(),
+            accumulatedTime = 0L,
+            isRunning = true
+        )
+
+        _timers.value = _timers.value + (activityId to updated)
+
+        viewModelScope.launch {
+            timerRepository.saveTimer(userId, updated)
+        }
+    }
 
 }

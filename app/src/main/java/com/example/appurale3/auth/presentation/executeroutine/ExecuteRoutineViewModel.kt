@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
 import androidx.core.app.NotificationCompat
@@ -53,7 +52,6 @@ class ExecuteRoutineViewModel @Inject constructor(
 
     private var onPlayCompletionSound: ((String?) -> Unit)? = null
     private var onRoutineCompleted: ((String?, String) -> Unit)? = null
-    private var onStopAlarmSound: (() -> Unit)? = null
 
     fun setOnPlayCompletionSound(callback: (String?) -> Unit) {
         onPlayCompletionSound = callback
@@ -63,20 +61,10 @@ class ExecuteRoutineViewModel @Inject constructor(
         onRoutineCompleted = callback
     }
 
-    fun setOnStopAlarmSound(callback: () -> Unit) {
-        onStopAlarmSound = callback
-    }
-
     fun playCompletionSound(context: Context, soundUri: String?) {
         try {
             completionMediaPlayer?.release()
-
-            val uri = if (!soundUri.isNullOrEmpty()) {
-                Uri.parse(soundUri)
-            } else {
-                android.provider.Settings.System.DEFAULT_NOTIFICATION_URI
-            }
-
+            val uri = if (!soundUri.isNullOrEmpty()) Uri.parse(soundUri) else android.provider.Settings.System.DEFAULT_NOTIFICATION_URI
             completionMediaPlayer = MediaPlayer.create(context, uri)
             completionMediaPlayer?.start()
             completionMediaPlayer?.setOnCompletionListener {
@@ -91,20 +79,10 @@ class ExecuteRoutineViewModel @Inject constructor(
     fun startAlarmSound(context: Context, soundUri: String?) {
         try {
             stopAlarmSound()
-
-            val uri = if (!soundUri.isNullOrEmpty()) {
-                Uri.parse(soundUri)
-            } else {
-                android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
-            }
-
+            val uri = if (!soundUri.isNullOrEmpty()) Uri.parse(soundUri) else android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
             alarmMediaPlayer = MediaPlayer.create(context, uri).apply {
                 isLooping = true
                 start()
-                setOnErrorListener { _, _, _ ->
-                    stopAlarmSound()
-                    false
-                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -117,79 +95,46 @@ class ExecuteRoutineViewModel @Inject constructor(
             release()
         }
         alarmMediaPlayer = null
-        onStopAlarmSound?.invoke()
-    }
-
-    fun stopCompletionSound() {
-        completionMediaPlayer?.release()
-        completionMediaPlayer = null
     }
 
     fun releaseAllPlayers() {
         stopAlarmSound()
-        stopCompletionSound()
+        completionMediaPlayer?.release()
+        completionMediaPlayer = null
     }
-    // Noti
+
     fun showCompletionNotification(context: Context, routineName: String) {
         val channelId = "routine_completion_channel"
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "Finalización de rutinas",
-                NotificationManager.IMPORTANCE_DEFAULT  // ← IMPORTANCE_DEFAULT (sin sonido)
-            ).apply {
+            val channel = NotificationChannel(channelId, "Finalización de rutinas", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Notificaciones cuando se completa una rutina"
-                enableVibration(false)      // ← Sin vibración
-                setSound(null, null)        // ← Sin sonido
-                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+                enableVibration(false)
+                setSound(null, null)
             }
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Intent para abrir la app
         val contentIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("routineId", _uiState.value.routine?.id)
-            putExtra("openRoutine", true)
         }
-        val pendingContentIntent = PendingIntent.getActivity(
-            context, 0, contentIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingContentIntent = PendingIntent.getActivity(context, 0, contentIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        // Intent para FINALIZAR RUTINA
-        val finishIntent = Intent(context, NotificationActionReceiver::class.java).apply {
-            action = "ACTION_FINISH_ROUTINE"
-            putExtra("routineId", _uiState.value.routine?.id)
-        }
-        val pendingFinishIntent = PendingIntent.getBroadcast(
-            context, 1, finishIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Construir notificación - COMPLETAMENTE SILENCIOSA
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("🎉 Rutina completada")
             .setContentText("¡Has completado la rutina $routineName!")
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText("¡Felicidades! Has completado la rutina $routineName"))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pendingContentIntent)
-            .setSilent(true)  // ← SILENCIOSA
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                "FINALIZAR",
-                pendingFinishIntent
-            )
+            .setSilent(true)
             .build()
 
         notificationManager.notify(1001, notification)
     }
+
     fun loadRoutine(routineId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -216,9 +161,7 @@ class ExecuteRoutineViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false) }
                 }
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(isLoading = false, errorMessage = e.message)
-                }
+                _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
             }
         }
     }
@@ -230,17 +173,15 @@ class ExecuteRoutineViewModel @Inject constructor(
                 delay(1000)
                 val currentState = _uiState.value
 
-                if (!currentState.isRunning || currentState.isPaused || currentState.isCompleted) {
-                    continue
-                }
+                if (!currentState.isRunning || currentState.isPaused || currentState.isCompleted) continue
 
                 if (currentState.timeRemaining <= 1) {
+                    // Tiempo terminado, pasar a siguiente actividad
                     val newIndex = currentState.currentActivityIndex + 1
                     val routine = currentState.routine
 
                     if (routine != null && newIndex < routine.activities.size) {
                         onPlayCompletionSound?.invoke(routine.soundUri)
-
                         val nextActivity = routine.activities[newIndex]
                         _uiState.update {
                             it.copy(
@@ -297,14 +238,17 @@ class ExecuteRoutineViewModel @Inject constructor(
         }
     }
 
+    // ==================== BOTÓN SIGUIENTE ACTIVIDAD ====================
     fun nextActivity() {
         timerJob?.cancel()
         val currentState = _uiState.value
         val routine = currentState.routine
 
         if (routine != null && currentState.currentActivityIndex + 1 < routine.activities.size) {
+            // Reproducir sonido de completado
             onPlayCompletionSound?.invoke(routine.soundUri)
 
+            // Avanzar a la siguiente actividad
             val nextActivity = routine.activities[currentState.currentActivityIndex + 1]
             _uiState.update {
                 it.copy(
@@ -319,6 +263,7 @@ class ExecuteRoutineViewModel @Inject constructor(
             }
             startTimer()
         } else {
+            // Si es la última actividad, completar rutina
             completeRoutine()
         }
     }
